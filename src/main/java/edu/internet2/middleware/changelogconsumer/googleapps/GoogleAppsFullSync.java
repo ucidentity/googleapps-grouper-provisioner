@@ -238,7 +238,7 @@ public class GoogleAppsFullSync {
                     if (member.getSubjectType() == SubjectTypeEnum.PERSON) {
                       String role = connector.determineRole(member, item.getGrouperGroup());
                       if (role != null) {
-                        grouperMembers.add(new ComparableMemberItem(connector.getAddressFormatter().qualifySubjectAddress(member.getSubjectId()), member));
+                        grouperMembers.add(new ComparableMemberItem(connector.fetchGooUserIdentifier(member.getSubject()), member));
                       }
                     }
                 }
