@@ -298,6 +298,9 @@ public class GoogleGrouperConnector {
             final Groups defaultGroupSettings = properties.getDefaultGroupSettings();
             groupSettings.setWhoCanViewMembership(defaultGroupSettings.getWhoCanViewMembership())
                     .setWhoCanInvite(defaultGroupSettings.getWhoCanInvite())
+					.setWhoCanAdd(defaultGroupSettings.getWhoCanAdd())
+					.setWhoCanJoin(defaultGroupSettings.getWhoCanJoin())
+					.setWhoCanLeaveGroup(defaultGroupSettings.getWhoCanLeaveGroup())
                     .setAllowExternalMembers(defaultGroupSettings.getAllowExternalMembers())
                     .setWhoCanPostMessage(defaultGroupSettings.getWhoCanPostMessage())
                     .setWhoCanJoin(defaultGroupSettings.getWhoCanJoin())
