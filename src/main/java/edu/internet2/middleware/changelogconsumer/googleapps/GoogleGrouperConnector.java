@@ -368,6 +368,11 @@ public class GoogleGrouperConnector {
         deleteGooGroupByName(group.getName());
     }
 
+	public void deleteGooGroup(String groupName) throws IOException {
+        deleteGooGroupByName(groupName);
+    }
+    
+
     public void deleteGooGroupByName(String groupName) throws IOException {
         final String groupKey = addressFormatter.qualifyGroupAddress(groupName);
         deleteGooGroupByEmail(groupKey);
@@ -459,6 +464,21 @@ public class GoogleGrouperConnector {
 
         return result;
     }
+
+	public boolean shouldDeleteGroup(String groupName, Stem stem) {
+        boolean result = false;
+ 
+        if (syncedObjects.containsKey(groupName)) {
+			LOG.debug("In shouldDeleteGroup with groupName {}", groupName);
+            result = syncedObjects.get(groupName).equalsIgnoreCase("yes");
+		} else {
+			LOG.debug("In shouldDeleteGroup with stem {}", stem);
+	     	result = shouldSyncStem(stem);
+		}
+
+        return result;
+    }
+    
 
     public boolean shouldSyncStem(Stem stem) {
         boolean result;

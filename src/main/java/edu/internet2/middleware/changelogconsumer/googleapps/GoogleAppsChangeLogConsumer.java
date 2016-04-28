@@ -429,7 +429,7 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
     }
 
     /**
-     * Delete a group.
+     * Delete a group. Modified to handle cases when the group is not part of groupGroups in the connector code.
      *
      * @param consumer the change log consumer
      * @param changeLogEntry the change log entry
@@ -439,16 +439,16 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
         LOG.debug("Google Apps Consumer '{}' - Change log entry '{}' Processing group delete.", consumerName, toString(changeLogEntry));
 
         final String groupName = changeLogEntry.retrieveValueForLabel(ChangeLogLabels.GROUP_DELETE.name);
-        final edu.internet2.middleware.grouper.Group grouperGroup = connector.fetchGrouperGroup(groupName);
+		final Stem stem = StemFinder.findByUuid(GrouperSession.staticGrouperSession(), changeLogEntry.retrieveValueForLabel(ChangeLogLabels.GROUP_DELETE.parentStemId), false);
 
-        if (!connector.shouldSyncGroup(grouperGroup)) {
+        if (!connector.shouldDeleteGroup(groupName, stem)) {
             LOG.debug("Google Apps Consumer '{}' - Change log entry '{}' Skipping group delete, nothing to do cause the group is not flagged or is gone.", consumerName,
                     toString(changeLogEntry));
             return;
         }
 
         try {
-            connector.deleteGooGroup(grouperGroup);
+            connector.deleteGooGroup(groupName);
         } catch (IOException e) {
             LOG.error("Google Apps Consumer '{}' - Change log entry '{}' Error processing group delete: {}", new Object[] {consumerName, toString(changeLogEntry), e.getMessage()});
         }
