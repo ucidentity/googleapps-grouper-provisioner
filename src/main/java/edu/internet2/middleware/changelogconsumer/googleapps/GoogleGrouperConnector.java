@@ -465,15 +465,22 @@ public class GoogleGrouperConnector {
         return result;
     }
 
-	public boolean shouldDeleteGroup(String groupName, Stem stem) {
+	public boolean shouldDeleteGroup(String groupName) {
         boolean result = false;
- 
+ 		
+		// Check for exact match
         if (syncedObjects.containsKey(groupName)) {
 			LOG.debug("In shouldDeleteGroup with groupName {}", groupName);
             result = syncedObjects.get(groupName).equalsIgnoreCase("yes");
-		} else {
-			LOG.debug("In shouldDeleteGroup with stem {}", stem);
-	     	result = shouldSyncStem(stem);
+		} else { // Check if the group is in a synched folder
+			Set <String> keySet = syncedObjects.keySet();
+			for (String groupPath : keySet) {
+				LOG.debug("We are checking groupPath {} against {}", groupPath, groupName);
+				if (groupName.startsWith(groupPath)){
+					result = true;
+					break;
+				}
+			}
 		}
 
         return result;

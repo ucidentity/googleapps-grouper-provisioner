@@ -439,9 +439,8 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
         LOG.debug("Google Apps Consumer '{}' - Change log entry '{}' Processing group delete.", consumerName, toString(changeLogEntry));
 
         final String groupName = changeLogEntry.retrieveValueForLabel(ChangeLogLabels.GROUP_DELETE.name);
-		final Stem stem = StemFinder.findByUuid(GrouperSession.staticGrouperSession(), changeLogEntry.retrieveValueForLabel(ChangeLogLabels.GROUP_DELETE.parentStemId), false);
 
-        if (!connector.shouldDeleteGroup(groupName, stem)) {
+        if (!connector.shouldDeleteGroup(groupName)) {
             LOG.debug("Google Apps Consumer '{}' - Change log entry '{}' Skipping group delete, nothing to do cause the group is not flagged or is gone.", consumerName,
                     toString(changeLogEntry));
             return;
