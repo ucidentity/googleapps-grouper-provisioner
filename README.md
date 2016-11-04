@@ -1,5 +1,16 @@
 Google Apps Grouper Provisioner
 ==============================
+
+#### Changes to the code base
+The code base has been moved to the grouper project github site. <https://github.com/Internet2/grouper/tree/master/grouper-misc/googleapps-grouper-provisioner>. 
+
+They made some nice changes and fixes. There are two that we made that are not represented there. One is a couple of settings that Google has added upon our request to allow management of the group in google groups but the membership is not changeable. The other is an issue we found with the subject identifier config. We couldn't find a way to access our google identifier using it. My expectation is that these can usefully be modified for the project. 
+
+The only other change that we need that may also work for others is an overall membership limiting attribute with exclusions. Any group with more than "max" membership won't be provisioned. There needs to be an attribute that allows large group exclusions (allowLargeGroups). 
+
+=============================
+
+
 > Professional support/integration assistance for this module is available. For more information, visit <https://unicon.net/opensource/grouper>.
 
 This project is a [Grouper](http://grouper.internet2.edu/) change log consumer and full sync agent that provisions (and deprovisions) Grouper groups and subjects to a Google Apps for Education/Business domain.
