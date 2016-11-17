@@ -1,20 +1,18 @@
-/*
- * Licensed to the University Corporation for Advanced Internet Development,
- * Inc. (UCAID) under one or more contributor license agreements.  See the
- * NOTICE file distributed with this work for additional information regarding
- * copyright ownership. The UCAID licenses this file to You under the Apache
- * License, Version 2.0 (the "License"); you may not use this file except in
- * compliance with the License.  You may obtain a copy of the License at
- *
- *    http://www.apache.org/licenses/LICENSE-2.0
- *
+/*******************************************************************************
+ * Copyright 2015 Internet2
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * 
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ * 
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- */
-
+ ******************************************************************************/
 package edu.internet2.middleware.changelogconsumer.googleapps.utils;
 
 import com.google.api.services.groupssettings.model.Groups;
@@ -81,12 +79,14 @@ public class GoogleAppsSyncProperties {
     private String googleGroupFilter;
 
     private boolean ignoreExtraGoogleMembers;
+    
+    private boolean ignoreExtraGoogleGroups;
 
-	/** Use this attribute for subject lookups to obtain the Google User */
-	private String attributeForGooUserLookup;
-	
-	/** Append the Domain to this attribute for subject lookups */
-	private boolean appendDomainToGooUserAttribute;
+    /** Use this attribute for subject lookups to obtain the Google User */
+    private String attributeForGooUserLookup;
+    
+    /** Append the Domain to this attribute for subject lookups */
+    private boolean appendDomainToGooUserAttribute;
 
     /** Newly deleted objects aren't always removed ASAP, nor are newly created/updated object ready immediately */
     private int recentlyManipulatedQueueSize;
@@ -153,10 +153,10 @@ public class GoogleAppsSyncProperties {
                 GrouperLoaderConfig.retrieveConfig().propertyValueInt(qualifiedParameterNamespace + "googleGroupCacheValidityPeriod", 30);
         LOG.debug("Google Apps Consumer - Setting googleGroupCacheValidityPeriod to {}", googleGroupCacheValidity);
 
-        prefillGoogleCachesForConsumer = GrouperLoaderConfig.retrieveConfig().propertyValueBoolean(PARAMETER_NAMESPACE + "prefillGoogleCachesForConsumer", false);
+        prefillGoogleCachesForConsumer = GrouperLoaderConfig.retrieveConfig().propertyValueBoolean(qualifiedParameterNamespace + "prefillGoogleCachesForConsumer", false);
         LOG.debug("Google Apps Consumer - Setting prefillGoogleCachesForConsumer to {}", prefillGoogleCachesForConsumer);
 
-        prefillGoogleCachesForFullSync = GrouperLoaderConfig.retrieveConfig().propertyValueBoolean(PARAMETER_NAMESPACE + "prefillGoogleCachesForFullSync", false);
+        prefillGoogleCachesForFullSync = GrouperLoaderConfig.retrieveConfig().propertyValueBoolean(qualifiedParameterNamespace + "prefillGoogleCachesForFullSync", false);
         LOG.debug("Google Apps Consumer - Setting prefillGoogleCachesForFullSync to {}", prefillGoogleCachesForFullSync);
 
         handleDeletedGroup =
@@ -174,6 +174,7 @@ public class GoogleAppsSyncProperties {
         recentlyManipulatedQueueDelay =
                 GrouperLoaderConfig.retrieveConfig().propertyValueInt(qualifiedParameterNamespace + "recentlyManipulatedQueueDelay", 2);
         LOG.debug("Google Apps Consumer - Setting recentlyManipulatedQueueDelay to {}", recentlyManipulatedQueueDelay);
+
 
         defaultGroupSettings.setWhoCanViewMembership(
                 GrouperLoaderConfig.retrieveConfig().propertyValueString(qualifiedParameterNamespace + "whoCanViewMembership", "ALL_IN_DOMAIN_CAN_VIEW"));
@@ -202,6 +203,10 @@ public class GoogleAppsSyncProperties {
         defaultGroupSettings.setWhoCanPostMessage(
                 GrouperLoaderConfig.retrieveConfig().propertyValueString(qualifiedParameterNamespace + "whoCanPostMessage", "ALL_IN_DOMAIN_CAN_POST"));
         LOG.debug("Google Apps Consumer - Setting whoCanPostMessage to {}", defaultGroupSettings.getWhoCanPostMessage());
+
+        defaultGroupSettings.setWhoCanJoin(
+                GrouperLoaderConfig.retrieveConfig().propertyValueString(qualifiedParameterNamespace + "whoCanJoin", "CAN_REQUEST_TO_JOIN"));
+        LOG.debug("Google Apps Consumer - Setting whoCanJoin to {}", defaultGroupSettings.getWhoCanJoin());
 
         defaultGroupSettings.setAllowWebPosting(
                 GrouperLoaderConfig.retrieveConfig().propertyValueString(qualifiedParameterNamespace + "allowWebPosting", "true"));
@@ -263,20 +268,23 @@ public class GoogleAppsSyncProperties {
                 GrouperLoaderConfig.retrieveConfig().propertyValueString(qualifiedParameterNamespace + "includeInGlobalAddressList", "true"));
         LOG.debug("Google Apps Consumer - Setting includeInGlobalAddressList to {}", defaultGroupSettings.getIncludeInGlobalAddressList());
 
-		retryOnError = GrouperLoaderConfig.retrieveConfig().propertyValueBoolean(PARAMETER_NAMESPACE + "retryOnError", false);
+        retryOnError = GrouperLoaderConfig.retrieveConfig().propertyValueBoolean(qualifiedParameterNamespace + "retryOnError", false);
         LOG.debug("Google Apps Consumer - Setting retryOnError to {}", retryOnError);
 
-        googleGroupFilter = GrouperLoaderConfig.retrieveConfig().propertyValueString(PARAMETER_NAMESPACE + "googleGroupFilter", ".*");
+        googleGroupFilter = GrouperLoaderConfig.retrieveConfig().propertyValueString(qualifiedParameterNamespace + "googleGroupFilter", ".*");
         LOG.debug("Google Apps Consumer - Setting googleGroupFilter to {}", googleGroupFilter);
 
-        ignoreExtraGoogleMembers = GrouperLoaderConfig.retrieveConfig().propertyValueBoolean(PARAMETER_NAMESPACE + "ignoreExtraGoogleMembers", true);
+        ignoreExtraGoogleMembers = GrouperLoaderConfig.retrieveConfig().propertyValueBoolean(qualifiedParameterNamespace + "ignoreExtraGoogleMembers", true);
         LOG.debug("Google Apps Consumer - Setting ignoreExtraGoogleMembers to {}", ignoreExtraGoogleMembers);
 
-		attributeForGooUserLookup =
+        ignoreExtraGoogleGroups = GrouperLoaderConfig.retrieveConfig().propertyValueBoolean(qualifiedParameterNamespace + "ignoreExtraGoogleGroups", false);
+        LOG.debug("Google Apps Consumer - Setting ignoreExtraGoogleGroups to {}", ignoreExtraGoogleGroups);
+
+        attributeForGooUserLookup =
                 GrouperLoaderConfig.retrieveConfig().propertyValueString(qualifiedParameterNamespace + "attributeForGooUserLookup", null);
         LOG.debug("Google Apps Consumer - Setting attributeForGooUserLookup to {}", attributeForGooUserLookup);
 
-		appendDomainToGooUserAttribute =
+        appendDomainToGooUserAttribute =
                 GrouperLoaderConfig.retrieveConfig().propertyValueBoolean(qualifiedParameterNamespace + "appendDomainToGooUserAttribute", false);
         LOG.debug("Google Apps Consumer - Setting appendDomainToGooUserAttribute to {}", appendDomainToGooUserAttribute);
 
@@ -365,6 +373,8 @@ public class GoogleAppsSyncProperties {
     public String getGoogleGroupFilter() { return googleGroupFilter; }
 
     public boolean shouldIgnoreExtraGoogleMembers() { return ignoreExtraGoogleMembers; }
+    
+    public boolean shouldIgnoreExtraGoogleGroups() { return ignoreExtraGoogleGroups; }
 
     public int getRecentlyManipulatedQueueSize() {
         return recentlyManipulatedQueueSize;
@@ -374,9 +384,9 @@ public class GoogleAppsSyncProperties {
         return recentlyManipulatedQueueDelay;
     }
 
-	public String getAttributeForGooUserLookup() {
+    public String getAttributeForGooUserLookup() {
         return attributeForGooUserLookup;
-	}
+    }
 
 	public boolean getAppendDomainToGooUserAttribute() { 
 		return appendDomainToGooUserAttribute; 
