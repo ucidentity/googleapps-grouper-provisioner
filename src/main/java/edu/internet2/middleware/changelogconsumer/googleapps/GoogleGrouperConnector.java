@@ -1,20 +1,18 @@
-/*
- * Licensed to the University Corporation for Advanced Internet Development,
- * Inc. (UCAID) under one or more contributor license agreements.  See the
- * NOTICE file distributed with this work for additional information regarding
- * copyright ownership. The UCAID licenses this file to You under the Apache
- * License, Version 2.0 (the "License"); you may not use this file except in
- * compliance with the License.  You may obtain a copy of the License at
- *
- *    http://www.apache.org/licenses/LICENSE-2.0
- *
+/*******************************************************************************
+ * Copyright 2015 Internet2
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * 
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ * 
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- */
-
+ ******************************************************************************/
 package edu.internet2.middleware.changelogconsumer.googleapps;
 
 import com.google.api.client.googleapis.auth.oauth2.GoogleCredential;
@@ -87,7 +85,7 @@ public class GoogleGrouperConnector {
     private AddressFormatter addressFormatter;
     private RecentlyManipulatedObjectsList recentlyManipulatedObjectsList;
 
-	private String attributeForGooUserLookup;
+    private String attributeForGooUserLookup;
 	private boolean appendDomainToGooUserAttribute;
 	private String domain;
 
@@ -325,14 +323,7 @@ public class GoogleGrouperConnector {
 
 
         } else {
-            recentlyManipulatedObjectsList.delayIfNeeded(groupKey);
-            Groups groupssettings = GoogleAppsSdkUtils.retrieveGroupSettings(groupssettingsClient, groupKey);
-
-            if (groupssettings.getArchiveOnly().equalsIgnoreCase("true")) {
-                groupssettings.setArchiveOnly("false");
-                GoogleAppsSdkUtils.updateGroupSettings(groupssettingsClient, groupKey, groupssettings);
-                recentlyManipulatedObjectsList.add(groupKey);
-            }
+          unarchiveGooGroupIfNecessary(googleGroup);
         }
 
         Set<edu.internet2.middleware.grouper.Member> members = grouperGroup.getMembers();
@@ -364,6 +355,22 @@ public class GoogleGrouperConnector {
         }
     }
 
+    public void unarchiveGooGroupIfNecessary(Group group) throws IOException {
+        String groupKey = group.getEmail();
+        final Groups defaultGroupSettings = properties.getDefaultGroupSettings();
+
+        recentlyManipulatedObjectsList.delayIfNeeded(groupKey);
+        Groups groupssettings = GoogleAppsSdkUtils.retrieveGroupSettings(groupssettingsClient, groupKey);
+
+        if (groupssettings.getArchiveOnly().equalsIgnoreCase("true")) {
+            groupssettings.setArchiveOnly("false");
+            groupssettings.setWhoCanPostMessage(defaultGroupSettings.getWhoCanPostMessage());
+
+            GoogleAppsSdkUtils.updateGroupSettings(groupssettingsClient, groupKey, groupssettings);
+            recentlyManipulatedObjectsList.add(groupKey);
+        }
+    }
+
     public void deleteGooGroup(edu.internet2.middleware.grouper.Group group) throws IOException {
         deleteGooGroupByName(group.getName());
     }
@@ -387,6 +394,7 @@ public class GoogleGrouperConnector {
 
             Groups gs = GoogleAppsSdkUtils.retrieveGroupSettings(groupssettingsClient, groupKey);
             gs.setArchiveOnly("true");
+            gs.setWhoCanPostMessage("NONE_CAN_POST");
             GoogleAppsSdkUtils.updateGroupSettings(groupssettingsClient, groupKey, gs);
 
             recentlyManipulatedObjectsList.add(groupKey);
@@ -555,6 +563,17 @@ public class GoogleGrouperConnector {
 
         }
 
+    public void removeGooMembership(String groupKey, String subjectEmail) throws IOException {
+      recentlyManipulatedObjectsList.delayIfNeeded(subjectEmail);
+      GoogleAppsSdkUtils.removeGroupMember(directoryClient, groupKey, subjectEmail);
+      recentlyManipulatedObjectsList.add(subjectEmail);
+
+      if (properties.shouldDeprovisionUsers()) {
+          //FUTURE: check if the user has other memberships and if not, initiate the removal here.
+      }
+
+      }
+    
     public Group updateGooGroup(String groupKey, Group group) throws IOException {
         recentlyManipulatedObjectsList.delayIfNeeded(groupKey);
         final Group gooGroup = GoogleAppsSdkUtils.updateGroup(directoryClient, groupKey, group);
@@ -590,8 +609,19 @@ public class GoogleGrouperConnector {
 
 
     public void updateGooMember(edu.internet2.middleware.grouper.Group group, Subject subject, String role) throws IOException {
-        User user = fetchGooUser(fetchGooUserIdentifier(subject));
+        User user = fetchGooUser(addressFormatter.qualifySubjectAddress(subject.getId()));
+
+        if (user == null) {
+            user = createGooUser(subject);
+            if (user == null) {
+                return;
+            }
+        }
+
         Group gooGroup = fetchGooGroup(addressFormatter.qualifyGroupAddress(group.getName()));
+        if (gooGroup == null) {
+            return;
+        }
 
         recentlyManipulatedObjectsList.delayIfNeeded(gooGroup.getEmail());
         Member member = GoogleAppsSdkUtils.retrieveGroupMember(directoryClient, gooGroup.getEmail(), user.getPrimaryEmail());

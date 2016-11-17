@@ -1,20 +1,18 @@
-/*
- * Licensed to the University Corporation for Advanced Internet Development,
- * Inc. (UCAID) under one or more contributor license agreements.  See the
- * NOTICE file distributed with this work for additional information regarding
- * copyright ownership. The UCAID licenses this file to You under the Apache
- * License, Version 2.0 (the "License"); you may not use this file except in
- * compliance with the License.  You may obtain a copy of the License at
- *
- *    http://www.apache.org/licenses/LICENSE-2.0
- *
+/*******************************************************************************
+ * Copyright 2015 Internet2
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * 
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ * 
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- */
-
+ ******************************************************************************/
 package edu.internet2.middleware.changelogconsumer.googleapps;
 
 import com.google.api.services.admin.directory.model.Group;
@@ -25,6 +23,7 @@ import edu.internet2.middleware.changelogconsumer.googleapps.utils.ComparableGro
 import edu.internet2.middleware.changelogconsumer.googleapps.utils.ComparableMemberItem;
 import edu.internet2.middleware.changelogconsumer.googleapps.utils.GoogleAppsSyncProperties;
 import edu.internet2.middleware.grouper.GrouperSession;
+import edu.internet2.middleware.grouper.MemberFinder;
 import edu.internet2.middleware.subject.Subject;
 import edu.internet2.middleware.subject.provider.SubjectTypeEnum;
 import java.io.IOException;
@@ -32,7 +31,9 @@ import java.security.GeneralSecurityException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.regex.Pattern;
 
 import org.apache.commons.collections.CollectionUtils;
@@ -216,12 +217,29 @@ public class GoogleAppsFullSync {
                         LOG.error("Google Apps Consume '{}' Full Sync - Error updating matched group ({}): {}", new Object[]{consumerName, item.getName(), e.getMessage()});
                     }
                 }
+                
+                try {
+                  connector.unarchiveGooGroupIfNecessary(gooGroup);
+                } catch (IOException e) {
+                  LOG.error("Google Apps Consume '{}' Full Sync - Error checking archive status for matched group ({}): {}", new Object[]{consumerName, item.getName(), e.getMessage()});
+                }
 
                 //Retrieve Membership
                 ArrayList<ComparableMemberItem> grouperMembers = new ArrayList<ComparableMemberItem>();
-                for (edu.internet2.middleware.grouper.Member member : item.getGrouperGroup().getMembers()) {
+                Set<edu.internet2.middleware.grouper.Member> members = new LinkedHashSet<edu.internet2.middleware.grouper.Member>();
+                members.addAll(item.getGrouperGroup().getMembers());
+                for (Subject subj : item.getGrouperGroup().getUpdaters()) {
+                  members.add(MemberFinder.findBySubject(GrouperSession.staticGrouperSession(), subj, false));
+                }
+                for (Subject subj : item.getGrouperGroup().getAdmins()) {
+                  members.add(MemberFinder.findBySubject(GrouperSession.staticGrouperSession(), subj, false));
+                }
+                for (edu.internet2.middleware.grouper.Member member : members) {
                     if (member.getSubjectType() == SubjectTypeEnum.PERSON) {
-                        grouperMembers.add(new ComparableMemberItem(connector.fetchGooUserIdentifier(member.getSubject()), member));
+                      String role = connector.determineRole(member, item.getGrouperGroup());
+                      if (role != null) {
+                        grouperMembers.add(new ComparableMemberItem(connector.getAddressFormatter().qualifySubjectAddress(member.getSubjectId()), member));
+                      }
                     }
                 }
 
@@ -276,6 +294,9 @@ public class GoogleAppsFullSync {
             LOG.info("Google Apps Consume '{}' Full Sync - Creating missing user/member ({}) from extra group ({}).", new Object[]{consumerName, member.getEmail(), group.getName()});
             if (!dryRun) {
                 Subject subject = connector.fetchGrouperSubject(member.getGrouperMember().getSubjectSourceId(), member.getGrouperMember().getSubjectId());
+                if (subject == null) {
+                    continue;
+                }
                 User user = connector.fetchGooUser(member.getEmail());
 
                 if (user == null) {
@@ -302,7 +323,7 @@ public class GoogleAppsFullSync {
             LOG.info("Google Apps Consume '{}' Full Sync - Removing extra member ({}) from matched group ({})", new Object[]{consumerName, member.getEmail(), group.getName()});
             if (!dryRun) {
                 try {
-                    connector.removeGooMembership(group.getName(), member.getGrouperMember().getSubject());
+                    connector.removeGooMembership(group.getName(), member.getEmail());
                 } catch (IOException e) {
                     LOG.warn("Google Apps Consume '{}' - Error removing membership ({}) from Google Group ({}): {}", new Object[]{consumerName, member.getEmail(), group.getName(), e.getMessage()});
                 }
@@ -326,6 +347,7 @@ public class GoogleAppsFullSync {
 
     private void processExtraGroups(boolean dryRun, Collection<ComparableGroupItem> extraGroups) {
         for (ComparableGroupItem item : extraGroups) {
+          if (!properties.shouldIgnoreExtraGoogleGroups()) {
             LOG.info("Google Apps Consumer '{}' Full Sync - removing extra Google group: {}", consumerName, item);
 
             if (!dryRun) {
@@ -335,6 +357,9 @@ public class GoogleAppsFullSync {
                     LOG.error("Google Apps Consume '{}' Full Sync - Error removing extra group ({}): {}", new Object[]{consumerName, item.getName(), e.getMessage()});
                 }
             }
+          } else {
+            LOG.info("Google Apps Consumer '{}' Full Sync - ignoring extra Google group: {}", consumerName, item);
+          }
         }
     }
 
