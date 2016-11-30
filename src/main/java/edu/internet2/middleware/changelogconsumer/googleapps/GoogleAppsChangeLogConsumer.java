@@ -1,20 +1,18 @@
-/*
- * Licensed to the University Corporation for Advanced Internet Development, 
- * Inc. (UCAID) under one or more contributor license agreements.  See the 
- * NOTICE file distributed with this work for additional information regarding
- * copyright ownership. The UCAID licenses this file to You under the Apache 
- * License, Version 2.0 (the "License"); you may not use this file except in 
- * compliance with the License.  You may obtain a copy of the License at
- *
- *    http://www.apache.org/licenses/LICENSE-2.0
- *
+/*******************************************************************************
+ * Copyright 2015 Internet2
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * 
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ * 
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- */
-
+ ******************************************************************************/
 package edu.internet2.middleware.changelogconsumer.googleapps;
 
 import com.google.api.services.admin.directory.model.Group;
@@ -30,6 +28,7 @@ import edu.internet2.middleware.grouper.privs.Privilege;
 import edu.internet2.middleware.subject.Subject;
 import edu.internet2.middleware.subject.SubjectType;
 import edu.internet2.middleware.subject.provider.SubjectTypeEnum;
+import edu.internet2.middleware.grouper.pit.finder.PITGroupFinder;
 import java.io.IOException;
 import java.util.*;
 import org.apache.commons.lang.builder.ToStringBuilder;
@@ -338,6 +337,9 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
 
             if (AttributeAssignType.valueOf(assignType) == AttributeAssignType.group) {
                 final edu.internet2.middleware.grouper.Group group = GroupFinder.findByUuid(GrouperSession.staticGrouperSession(), ownerId, false);
+                if (group == null) {
+                  return;  // group was deleted
+                }
 
                 try {
                     connector.createGooGroupIfNecessary(group);
@@ -347,6 +349,9 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
 
             } else if (AttributeAssignType.valueOf(assignType) == AttributeAssignType.stem) {
                 final Stem stem = StemFinder.findByUuid(GrouperSession.staticGrouperSession(), ownerId, false);
+                if (stem == null) {
+                  return;  // stem was deleted
+                }
                 final Set<edu.internet2.middleware.grouper.Group> groups = stem.getChildGroups(Scope.SUB);
 
                 for (edu.internet2.middleware.grouper.Group group : groups) {
@@ -378,23 +383,30 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
         if (syncAttribute.getId().equalsIgnoreCase(attributeDefNameId)) {
 
             if (AttributeAssignType.valueOf(assignType) == AttributeAssignType.group) {
+                String groupName = null;
                 final edu.internet2.middleware.grouper.Group group = GroupFinder.findByUuid(GrouperSession.staticGrouperSession(), ownerId, false);
-
+                if (group != null) {
+                    groupName = group.getName();
+                } else {
+                    groupName = PITGroupFinder.findBySourceId(ownerId, true).iterator().next().getName();
+                }
                 try {
-                    connector.deleteGooGroup(group);
+                    connector.deleteGooGroupByName(groupName);
                 } catch (IOException e) {
                     LOG.error("Google Apps Consumer '{}' - Change log entry '{}' Error processing group add: {}", new Object[] {consumerName, toString(changeLogEntry), e});
                 }
 
             } else if (AttributeAssignType.valueOf(assignType) == AttributeAssignType.stem) {
                 final Stem stem = StemFinder.findByUuid(GrouperSession.staticGrouperSession(), ownerId, false);
-                final Set<edu.internet2.middleware.grouper.Group> groups = stem.getChildGroups(Scope.SUB);
-
-                for (edu.internet2.middleware.grouper.Group group : groups) {
-                    try {
-                        connector.deleteGooGroup(group);
-                    } catch (IOException e) {
-                        LOG.error("Google Apps Consumer '{}' - Change log entry '{}' Error processing group add, continuing: {}", new Object[] {consumerName, toString(changeLogEntry), e});
+                if (stem != null){
+                    final Set<edu.internet2.middleware.grouper.Group> groups = stem.getChildGroups(Scope.SUB);
+                    
+                    for (edu.internet2.middleware.grouper.Group group : groups) {
+                        try {
+                            connector.deleteGooGroup(group);
+                        } catch (IOException e) {
+                            LOG.error("Google Apps Consumer '{}' - Change log entry '{}' Error processing group add, continuing: {}", new Object[] {consumerName, toString(changeLogEntry), e});
+                        }
                     }
                 }
             }
@@ -567,7 +579,10 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
                 }
 
                 if (user != null) {
-                    connector.createGooMember(group, user, connector.determineRole(member, grouperGroup));
+                    String role = connector.determineRole(member, grouperGroup);
+                    if (role != null) {
+                      connector.createGooMember(group, user, role);
+                    }
                 }
             }
 
@@ -597,16 +612,23 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
             return;
         }
 
+        final String memberId = changeLogEntry.retrieveValueForLabel(ChangeLogLabels.MEMBERSHIP_DELETE.memberId);
         final String subjectId = changeLogEntry.retrieveValueForLabel(ChangeLogLabels.MEMBERSHIP_DELETE.subjectId);
         final String sourceId = changeLogEntry.retrieveValueForLabel(ChangeLogLabels.MEMBERSHIP_DELETE.sourceId);
         final Subject lookupSubject = connector.fetchGrouperSubject(sourceId, subjectId);
         final SubjectType subjectType = lookupSubject.getType();
+        final Member member = MemberFinder.findByUuid(GrouperSession.staticGrouperSession(), memberId, false);
 
         //For nested groups, ChangeLogEvents fire when the group is removed, and also for each indirect user added,
         //so we only need to handle PERSON events.
         if (subjectType == SubjectTypeEnum.PERSON) {
-            try {
-                connector.removeGooMembership(groupName, lookupSubject);
+            try {                
+                String role = connector.determineRole(member, grouperGroup);
+                if (role != null) {
+                    connector.updateGooMember(grouperGroup, lookupSubject, role);
+                } else {
+                    connector.removeGooMembership(grouperGroup.getName(), lookupSubject);
+                }
             } catch (IOException e) {
                 LOG.debug("Google Apps Consumer '{}' - Change log entry '{}' Error processing membership delete: {}", new Object[]{consumerName,
                         toString(changeLogEntry), e});
@@ -636,7 +658,10 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
 
         if (member.getSubjectType() == SubjectTypeEnum.PERSON) {
             try {
-                connector.createGooMember(grouperGroup, member.getSubject(), connector.determineRole(member, grouperGroup));
+                String role = connector.determineRole(member, grouperGroup);
+                if (role != null) {
+                  connector.updateGooMember(grouperGroup, member.getSubject(), role);
+                }
             } catch (IOException e) {
                 LOG.debug("Google Apps Consumer '{}' - Change log entry '{}' Error processing privilege add: {}", new Object[]{consumerName,
                         toString(changeLogEntry), e});
@@ -672,7 +697,10 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
 
         if (member.getSubjectType() == SubjectTypeEnum.PERSON) {
             try {
-                connector.updateGooMember(grouperGroup, member.getSubject(), connector.determineRole(member, grouperGroup));
+                String role = connector.determineRole(member, grouperGroup);
+                if (role != null) {
+                  connector.updateGooMember(grouperGroup, member.getSubject(), role);
+                }
             } catch (IOException e) {
                 LOG.debug("Google Apps Consumer '{}' - Change log entry '{}' Error processing privilege update: {}", new Object[]{consumerName,
                         toString(changeLogEntry), e});
@@ -708,8 +736,9 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
 
         if (member.getSubjectType() == SubjectTypeEnum.PERSON) {
             try {
-                if (grouperGroup.hasMember(member.getSubject())) {
-                    connector.updateGooMember(grouperGroup, member.getSubject(), connector.determineRole(member, grouperGroup));
+                String role = connector.determineRole(member, grouperGroup);
+                if (role != null) {
+                    connector.updateGooMember(grouperGroup, member.getSubject(), role);
                 } else {
                     connector.removeGooMembership(grouperGroup.getName(), member.getSubject());
                 }
