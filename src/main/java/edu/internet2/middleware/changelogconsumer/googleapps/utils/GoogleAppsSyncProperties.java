@@ -183,7 +183,7 @@ public class GoogleAppsSyncProperties {
         LOG.debug("Google Apps Consumer - Setting largeGroupSize to {}", largeGroupSize);
 
         //allow the admin to point to a different, or shared (among other google provisioners) attributeDefName
-        allowLargeGroupsAttributeDefName = GrouperLoaderConfig.retrieveConfig().propertyValueString(qualifiedParameterNamespace + "allowLargeGroupsAttributeDefName", qualifiedParameterNamespace + "allowLargeGroupsAttributeDefName");
+        allowLargeGroupsAttributeDefName = GrouperLoaderConfig.retrieveConfig().propertyValueString(qualifiedParameterNamespace + "allowLargeGroupsAttributeDefName", "etc:attribute:googleProvisioner:allowLargeGroups");
         LOG.debug("Google Apps Consumer - Setting allowLargeGroupsAttributeDefName to {}", allowLargeGroupsAttributeDefName);
 
         defaultGroupSettings.setWhoCanViewMembership(
