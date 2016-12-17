@@ -18,6 +18,7 @@ package edu.internet2.middleware.changelogconsumer.googleapps;
 import com.google.api.services.admin.directory.model.Group;
 import com.google.api.services.admin.directory.model.User;
 import edu.internet2.middleware.changelogconsumer.googleapps.cache.GoogleCacheManager;
+import edu.internet2.middleware.changelogconsumer.googleapps.utils.AllowLargeGroupsUtils;
 import edu.internet2.middleware.changelogconsumer.googleapps.utils.GoogleAppsSyncProperties;
 import edu.internet2.middleware.grouper.*;
 import edu.internet2.middleware.grouper.attr.AttributeDefName;
@@ -147,7 +148,7 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
     private String consumerName;
     private AttributeDefName syncAttribute;
     private GoogleGrouperConnector connector;
-
+    private AllowLargeGroupsUtils allowLargeGroupsUtils;
 
     public GoogleAppsChangeLogConsumer() {
         LOG.trace("Google Apps Consumer - new instances starting up");
@@ -172,6 +173,7 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
         }
 
         GoogleAppsSyncProperties properties = new GoogleAppsSyncProperties(consumerName);
+        this.allowLargeGroupsUtils = new AllowLargeGroupsUtils(properties);
 
         try {
             connector.initialize(consumerName, properties);
@@ -555,6 +557,10 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
         if (!connector.shouldSyncGroup(grouperGroup)) {
             LOG.debug("Google Apps Consumer '{}' - Change log entry '{}' Skipping membership add, nothing to do cause the group is not flagged or is gone.", consumerName,
                     toString(changeLogEntry));
+            return;
+        }
+
+        if (allowLargeGroupsUtils.blockNewMember(grouperGroup)) {
             return;
         }
 
