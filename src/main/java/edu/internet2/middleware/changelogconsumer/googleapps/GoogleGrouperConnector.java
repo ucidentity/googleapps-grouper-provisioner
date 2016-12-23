@@ -37,6 +37,7 @@ import edu.internet2.middleware.grouper.*;
 import edu.internet2.middleware.grouper.attr.AttributeDef;
 import edu.internet2.middleware.grouper.attr.AttributeDefName;
 import edu.internet2.middleware.grouper.attr.AttributeDefType;
+import edu.internet2.middleware.grouper.attr.AttributeDefValueType;
 import edu.internet2.middleware.grouper.attr.assign.AttributeAssign;
 import edu.internet2.middleware.grouper.attr.finder.AttributeDefFinder;
 import edu.internet2.middleware.grouper.attr.finder.AttributeDefNameFinder;
@@ -445,6 +446,7 @@ public class GoogleGrouperConnector {
                 syncAttrDef.setAssignToGroup(true);
                 syncAttrDef.setAssignToStem(true);
                 syncAttrDef.setMultiAssignable(true);
+                syncAttrDef.setValueType(AttributeDefValueType.string);
                 syncAttrDef.store();
             }
 
@@ -471,7 +473,9 @@ public class GoogleGrouperConnector {
 
         } else {
             //result = group.getAttributeDelegate().retrieveAssignments(syncAttribute).size() > 0 || shouldSyncStem(group.getParentStem());
-            result = group.getAttributeValueDelegate().retrieveValueString(syncAttributeDefName).equalsIgnoreCase("yes") || shouldSyncStem(group.getParentStem());
+            String attributeResult = group.getAttributeValueDelegate().retrieveValueString(syncAttributeDefName);
+            attributeResult = attributeResult == null ? "no" : attributeResult;
+            result = attributeResult.equalsIgnoreCase("yes") || shouldSyncStem(group.getParentStem());
             syncedObjects.put(groupName, result ? "yes" : "no");
         }
 
@@ -488,7 +492,9 @@ public class GoogleGrouperConnector {
 
         } else {
             //result = stem.getAttributeDelegate().retrieveAssignments(syncAttribute).size() > 0 || !stem.isRootStem() && shouldSyncStem(stem.getParentStem());
-            result = stem.getAttributeValueDelegate().retrieveValueString(syncAttributeDefName).equalsIgnoreCase("yes") || !stem.isRootStem() && shouldSyncStem(stem.getParentStem());
+            String attributeResult = stem.getAttributeValueDelegate().retrieveValueString(syncAttributeDefName);
+            attributeResult = attributeResult == null ? "no" : attributeResult;
+            result = attributeResult.equalsIgnoreCase("yes") || !stem.isRootStem() && shouldSyncStem(stem.getParentStem());
             syncedObjects.put(stemName, result ? "yes" : "no");
         }
 

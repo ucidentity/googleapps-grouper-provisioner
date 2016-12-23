@@ -27,23 +27,19 @@ public class AllowLargeGroupsUtils {
     }
 
     public boolean blockNewMember(final Group group) {
+        if (group.getMemberships().size() < properties.getLargeGroupSize()) {
+            return false;
 
-    /*    return (Boolean) GrouperSession.callbackGrouperSession(
-                // Grab a static session
-                GrouperSession.staticGrouperSession().internal_getRootSession(), new GrouperSessionHandler() {
-                    public Object callback(final GrouperSession grouperSession) throws GrouperSessionException {
-    */
-                        if (group.getEffectiveMembers().size() < properties.getLargeGroupSize()
-                                || (allowLargeGroupsAttributeDefName != null
-                                && group.getAttributeDelegate().retrieveAssignments(allowLargeGroupsAttributeDefName).size() > 0)) {
-                            return Boolean.FALSE;
-                        }
+        } else if (allowLargeGroupsAttributeDefName != null) {
+            String value = group.getAttributeValueDelegate().retrieveValueString(allowLargeGroupsAttributeDefName.getName());
 
-                        LOG.warn("Group contains more than {} members and has no allowLargerGroups override attribute; skipping.", properties.getLargeGroupSize());
-                        return Boolean.TRUE;
-    /*                }
-                });
-    }*/
+            if (value != null && value.equalsIgnoreCase("yes")) {
+                return false;
+            }
+        }
+
+        LOG.warn("Group contains more than {} members and has no allowLargerGroups override attribute; skipping.", properties.getLargeGroupSize());
+        return true;
+
     }
-
 }
