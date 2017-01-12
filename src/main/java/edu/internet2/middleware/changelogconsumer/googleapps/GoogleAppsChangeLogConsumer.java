@@ -250,7 +250,9 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
                     stopWatch.start();
                 }
 
-                lastContextId = changeLogEntry.getContextId();
+                if (changeLogEntry.getContextId() != null) {
+                    lastContextId = changeLogEntry.getContextId();
+                }
 
                 // if an error occurs and retry on error is true, return the current sequence number minus 1
                 /* Whether or not to retry a change log entry if an error occurs. */
