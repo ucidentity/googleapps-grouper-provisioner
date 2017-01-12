@@ -37,6 +37,7 @@ import edu.internet2.middleware.grouper.*;
 import edu.internet2.middleware.grouper.attr.AttributeDef;
 import edu.internet2.middleware.grouper.attr.AttributeDefName;
 import edu.internet2.middleware.grouper.attr.AttributeDefType;
+import edu.internet2.middleware.grouper.attr.AttributeDefValueType;
 import edu.internet2.middleware.grouper.attr.assign.AttributeAssign;
 import edu.internet2.middleware.grouper.attr.finder.AttributeDefFinder;
 import edu.internet2.middleware.grouper.attr.finder.AttributeDefNameFinder;
@@ -45,14 +46,17 @@ import edu.internet2.middleware.grouper.misc.GrouperDAOFactory;
 import edu.internet2.middleware.grouper.util.GrouperUtil;
 import edu.internet2.middleware.subject.Subject;
 import edu.internet2.middleware.subject.provider.SubjectTypeEnum;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.IOException;
 import java.math.BigInteger;
 import java.security.GeneralSecurityException;
 import java.security.SecureRandom;
-import java.util.*;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Set;
 
 /**
  * Contains methods used by both the ChangeLogConsumer and the FullSync classes.
@@ -81,6 +85,7 @@ public class GoogleGrouperConnector {
 
     private String consumerName;
     private AttributeDefName syncAttribute;
+    private String syncAttributeDefName;
     private GoogleAppsSyncProperties properties;
     private AddressFormatter addressFormatter;
     private RecentlyManipulatedObjectsList recentlyManipulatedObjectsList;
@@ -415,13 +420,15 @@ public class GoogleGrouperConnector {
      * @return The AttributeDefName for this GoogleApps ChangeLog Consumer
      */
     public AttributeDefName getGoogleSyncAttribute() {
-        LOG.debug("Google Apps Consumer '{}' - looking for attribute: {}", consumerName, SYNC_TO_GOOGLE_NAME + consumerName);
+        syncAttributeDefName = SYNC_TO_GOOGLE_NAME + consumerName;
+
+        LOG.debug("Google Apps Consumer '{}' - looking for attribute: {}", consumerName, syncAttributeDefName);
 
         if (syncAttribute != null) {
             return syncAttribute;
         }
 
-        AttributeDefName attrDefName = AttributeDefNameFinder.findByName(SYNC_TO_GOOGLE_NAME + consumerName, false);
+        AttributeDefName attrDefName = AttributeDefNameFinder.findByName(syncAttributeDefName, false);
 
         if (attrDefName == null) {
             Stem googleStem = StemFinder.findByName(GrouperSession.staticGrouperSession(), GOOGLE_CONFIG_STEM, false);
@@ -439,10 +446,11 @@ public class GoogleGrouperConnector {
                 syncAttrDef.setAssignToGroup(true);
                 syncAttrDef.setAssignToStem(true);
                 syncAttrDef.setMultiAssignable(true);
+                syncAttrDef.setValueType(AttributeDefValueType.string);
                 syncAttrDef.store();
             }
 
-            LOG.info("Google Apps Consumer '{}' - {} attribute not found, creating it now", consumerName, SYNC_TO_GOOGLE_NAME + consumerName);
+            LOG.info("Google Apps Consumer '{}' - {} attribute not found, creating it now", consumerName, syncAttributeDefName);
             attrDefName = googleStem.addChildAttributeDefName(syncAttrDef, SYNC_TO_GOOGLE + consumerName, SYNC_TO_GOOGLE + consumerName);
         }
 
@@ -464,7 +472,10 @@ public class GoogleGrouperConnector {
             result = syncedObjects.get(groupName).equalsIgnoreCase("yes");
 
         } else {
-            result = group.getAttributeDelegate().retrieveAssignments(syncAttribute).size() > 0 || shouldSyncStem(group.getParentStem());
+            //result = group.getAttributeDelegate().retrieveAssignments(syncAttribute).size() > 0 || shouldSyncStem(group.getParentStem());
+            String attributeResult = group.getAttributeValueDelegate().retrieveValueString(syncAttributeDefName);
+            attributeResult = attributeResult == null ? "no" : attributeResult;
+            result = attributeResult.equalsIgnoreCase("yes") || shouldSyncStem(group.getParentStem());
             syncedObjects.put(groupName, result ? "yes" : "no");
         }
 
@@ -480,8 +491,10 @@ public class GoogleGrouperConnector {
             result = syncedObjects.get(stemName).equalsIgnoreCase("yes");
 
         } else {
-            result = stem.getAttributeDelegate().retrieveAssignments(syncAttribute).size() > 0 || !stem.isRootStem() && shouldSyncStem(stem.getParentStem());
-
+            //result = stem.getAttributeDelegate().retrieveAssignments(syncAttribute).size() > 0 || !stem.isRootStem() && shouldSyncStem(stem.getParentStem());
+            String attributeResult = stem.getAttributeValueDelegate().retrieveValueString(syncAttributeDefName);
+            attributeResult = attributeResult == null ? "no" : attributeResult;
+            result = attributeResult.equalsIgnoreCase("yes") || !stem.isRootStem() && shouldSyncStem(stem.getParentStem());
             syncedObjects.put(stemName, result ? "yes" : "no");
         }
 
@@ -496,12 +509,14 @@ public class GoogleGrouperConnector {
 
         final ArrayList<String> ids = new ArrayList<String>();
 
-        //First the users
+        //First the Stems
         Set<AttributeAssign> attributeAssigns = GrouperDAOFactory.getFactory()
                 .getAttributeAssign().findStemAttributeAssignments(null, null, GrouperUtil.toSet(syncAttribute.getId()), null, null, true, false);
 
         for (AttributeAssign attributeAssign : attributeAssigns) {
-            ids.add(attributeAssign.getOwnerStemId());
+            if (attributeAssign.getOwnerStem().getAttributeValueDelegate().retrieveValueString(syncAttributeDefName).equalsIgnoreCase("true")) {
+                ids.add(attributeAssign.getOwnerStemId());
+            }
         }
         final Set<Stem> stems = StemFinder.findByUuids(GrouperSession.staticGrouperSession(), ids, new QueryOptions());
         for (Stem stem : stems) {
@@ -519,8 +534,10 @@ public class GoogleGrouperConnector {
                 .getAttributeAssign().findGroupAttributeAssignments(null, null, GrouperUtil.toSet(syncAttribute.getId()), null, null, true, false);
 
         for (AttributeAssign attributeAssign : attributeAssigns) {
-            final edu.internet2.middleware.grouper.Group group = GroupFinder.findByUuid(GrouperSession.staticGrouperSession(), attributeAssign.getOwnerGroupId(), false);
-            syncedObjects.put(group.getName(), "yes");
+            if (attributeAssign.getOwnerGroup().getAttributeValueDelegate().retrieveValueString(syncAttributeDefName).equalsIgnoreCase("yes")) {
+                final edu.internet2.middleware.grouper.Group group = GroupFinder.findByUuid(GrouperSession.staticGrouperSession(), attributeAssign.getOwnerGroupId(), false);
+                syncedObjects.put(group.getName(), "yes");
+            }
         }
     }
 
