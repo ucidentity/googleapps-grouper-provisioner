@@ -79,8 +79,14 @@ public class GoogleAppsSyncProperties {
     private String googleGroupFilter;
 
     private boolean ignoreExtraGoogleMembers;
-    
+
     private boolean ignoreExtraGoogleGroups;
+
+    /** Use this attribute for subject lookups to obtain the Google User */
+    private String attributeForGooUserLookup;
+
+    /** Append the Domain to this attribute for subject lookups */
+    private boolean appendDomainToGooUserAttribute;
 
     /** Newly deleted objects aren't always removed ASAP, nor are newly created/updated object ready immediately */
     private int recentlyManipulatedQueueSize;
@@ -169,7 +175,6 @@ public class GoogleAppsSyncProperties {
                 GrouperLoaderConfig.retrieveConfig().propertyValueInt(qualifiedParameterNamespace + "recentlyManipulatedQueueDelay", 2);
         LOG.debug("Google Apps Consumer - Setting recentlyManipulatedQueueDelay to {}", recentlyManipulatedQueueDelay);
 
-
         defaultGroupSettings.setWhoCanViewMembership(
                 GrouperLoaderConfig.retrieveConfig().propertyValueString(qualifiedParameterNamespace + "whoCanViewMembership", "ALL_IN_DOMAIN_CAN_VIEW"));
         LOG.debug("Google Apps Consumer - Setting whoCanViewMembership to {}", defaultGroupSettings.getWhoCanViewMembership());
@@ -177,6 +182,18 @@ public class GoogleAppsSyncProperties {
         defaultGroupSettings.setWhoCanInvite(
                 GrouperLoaderConfig.retrieveConfig().propertyValueString(qualifiedParameterNamespace + "whoCanInvite", "ALL_MANAGERS_CAN_INVITE"));
         LOG.debug("Google Apps Consumer - Setting whoCanInvite to {}", defaultGroupSettings.getWhoCanInvite());
+
+        defaultGroupSettings.setWhoCanAdd(
+                GrouperLoaderConfig.retrieveConfig().propertyValueString(qualifiedParameterNamespace + "whoCanAdd", "NONE_CAN_ADD"));
+        LOG.debug("Google Apps Consumer - Setting whoCanAdd to {}", defaultGroupSettings.getWhoCanAdd());
+
+        defaultGroupSettings.setWhoCanJoin(
+                GrouperLoaderConfig.retrieveConfig().propertyValueString(qualifiedParameterNamespace + "whoCanJoin", "INVITED_CAN_JOIN"));
+        LOG.debug("Google Apps Consumer - Setting whoCanJoin to {}", defaultGroupSettings.getWhoCanJoin());
+
+        defaultGroupSettings.setWhoCanLeaveGroup(
+                GrouperLoaderConfig.retrieveConfig().propertyValueString(qualifiedParameterNamespace + "whoCanLeaveGroup", "NONE_CAN_LEAVE"));
+        LOG.debug("Google Apps Consumer - Setting whoCanLeaveGroup to {}", defaultGroupSettings.getWhoCanLeaveGroup());
 
         defaultGroupSettings.setAllowExternalMembers(
                 GrouperLoaderConfig.retrieveConfig().propertyValueString(qualifiedParameterNamespace + "allowExternalMembers", "false"));
@@ -261,6 +278,12 @@ public class GoogleAppsSyncProperties {
 
         ignoreExtraGoogleGroups = GrouperLoaderConfig.retrieveConfig().propertyValueBoolean(qualifiedParameterNamespace + "ignoreExtraGoogleGroups", false);
         LOG.debug("Google Apps Consumer - Setting ignoreExtraGoogleGroups to {}", ignoreExtraGoogleGroups);
+
+	attributeForGooUserLookup = GrouperLoaderConfig.retrieveConfig().propertyValueString(qualifiedParameterNamespace + "attributeForGooUserLookup", null);
+        LOG.debug("Google Apps Consumer - Setting attributeForGooUserLookup to {}", attributeForGooUserLookup);
+
+        appendDomainToGooUserAttribute = GrouperLoaderConfig.retrieveConfig().propertyValueBoolean(qualifiedParameterNamespace + "appendDomainToGooUserAttribute", false);
+        LOG.debug("Google Apps Consumer - Setting appendDomainToGooUserAttribute to {}", appendDomainToGooUserAttribute);
     }
 
     public boolean isRetryOnError() {
@@ -356,4 +379,12 @@ public class GoogleAppsSyncProperties {
     public int getRecentlyManipulatedQueueDelay() {
         return recentlyManipulatedQueueDelay;
     }
+
+	public String getAttributeForGooUserLookup() {
+        return attributeForGooUserLookup;
+	}
+
+	public boolean getAppendDomainToGooUserAttribute() { 
+		return appendDomainToGooUserAttribute; 
+	}
 }

@@ -85,6 +85,10 @@ public class GoogleGrouperConnector {
     private AddressFormatter addressFormatter;
     private RecentlyManipulatedObjectsList recentlyManipulatedObjectsList;
 
+	private String attributeForGooUserLookup;
+	private boolean appendDomainToGooUserAttribute;
+	private String domain;
+
     public GoogleGrouperConnector() {
         grouperSubjects = new Cache<Subject>();
         grouperGroups = new Cache<edu.internet2.middleware.grouper.Group>();
@@ -128,6 +132,13 @@ public class GoogleGrouperConnector {
         grouperGroups.seed(100);
 
         recentlyManipulatedObjectsList = new RecentlyManipulatedObjectsList(properties.getRecentlyManipulatedQueueSize(), properties.getRecentlyManipulatedQueueDelay());
+
+	attributeForGooUserLookup = properties.getAttributeForGooUserLookup();
+
+	appendDomainToGooUserAttribute = properties.getAppendDomainToGooUserAttribute();
+
+	domain = properties.getGoogleDomain();
+
     }
 
     /**
@@ -234,7 +245,7 @@ public class GoogleGrouperConnector {
         if (properties.shouldProvisionUsers()) {
             newUser = new User();
             newUser.setPassword(new BigInteger(130, new SecureRandom()).toString(32))
-                    .setPrimaryEmail(email != null ? email : addressFormatter.qualifySubjectAddress(subject.getId()))
+                    .setPrimaryEmail(email != null ? email : fetchGooUserIdentifier(subject))
                     .setIncludeInGlobalAddressList(properties.shouldIncludeUserInGlobalAddressList())
                     .setName(new UserName())
                     .getName().setFullName(subjectName);
@@ -287,6 +298,9 @@ public class GoogleGrouperConnector {
             final Groups defaultGroupSettings = properties.getDefaultGroupSettings();
             groupSettings.setWhoCanViewMembership(defaultGroupSettings.getWhoCanViewMembership())
                     .setWhoCanInvite(defaultGroupSettings.getWhoCanInvite())
+					.setWhoCanAdd(defaultGroupSettings.getWhoCanAdd())
+					.setWhoCanJoin(defaultGroupSettings.getWhoCanJoin())
+					.setWhoCanLeaveGroup(defaultGroupSettings.getWhoCanLeaveGroup())
                     .setAllowExternalMembers(defaultGroupSettings.getAllowExternalMembers())
                     .setWhoCanPostMessage(defaultGroupSettings.getWhoCanPostMessage())
                     .setWhoCanJoin(defaultGroupSettings.getWhoCanJoin())
@@ -317,10 +331,7 @@ public class GoogleGrouperConnector {
         for (edu.internet2.middleware.grouper.Member member : members) {
             if (member.getSubjectType() == SubjectTypeEnum.PERSON) {
                 Subject subject = fetchGrouperSubject(member.getSubjectSourceId(), member.getSubjectId());
-                if (subject == null) {
-                    continue;
-                }
-                String userKey = addressFormatter.qualifySubjectAddress(subject.getId());
+                String userKey = fetchGooUserIdentifier(subject);
                 User user = fetchGooUser(userKey);
 
                 if (user == null) {
@@ -516,7 +527,7 @@ public class GoogleGrouperConnector {
 
     public void removeGooMembership(String groupName, Subject subject) throws IOException {
         final String groupKey = addressFormatter.qualifyGroupAddress(groupName);
-        final String userKey = addressFormatter.qualifySubjectAddress(subject.getId());
+        final String userKey = fetchGooUserIdentifier(subject);
 
         recentlyManipulatedObjectsList.delayIfNeeded(userKey);
         GoogleAppsSdkUtils.removeGroupMember(directoryClient, groupKey, userKey);
@@ -560,7 +571,7 @@ public class GoogleGrouperConnector {
     }
 
     public void createGooMember(edu.internet2.middleware.grouper.Group group, Subject subject, String role) throws IOException {
-        User user = fetchGooUser(addressFormatter.qualifySubjectAddress(subject.getId()));
+        User user = fetchGooUser(fetchGooUserIdentifier(subject));
 
         if (user == null) {
             user = createGooUser(subject);
@@ -574,7 +585,7 @@ public class GoogleGrouperConnector {
 
 
     public void updateGooMember(edu.internet2.middleware.grouper.Group group, Subject subject, String role) throws IOException {
-        User user = fetchGooUser(addressFormatter.qualifySubjectAddress(subject.getId()));
+        User user = fetchGooUser(fetchGooUserIdentifier(subject));
 
         if (user == null) {
             user = createGooUser(subject);
@@ -602,5 +613,26 @@ public class GoogleGrouperConnector {
             recentlyManipulatedObjectsList.add(user.getPrimaryEmail());
         }
     }
+
+	/** Here we look for a user attribute that is attached to the subject that can be looked up.
+	 *	If not, we use the subject Identifer expression.
+	 *  @return the String that will be used for the Google User Identifier
+	 */
+	public String fetchGooUserIdentifier (Subject subject) {
+		LOG.debug("In fetchGooUserIdentifier with a subject: " + subject);
+				
+		if (attributeForGooUserLookup != null) {
+			String gooSubjectIdentifier = subject.getAttributeValue( attributeForGooUserLookup );
+			LOG.debug ("The subject identifier is "  + gooSubjectIdentifier);
+			
+			if (appendDomainToGooUserAttribute) {
+				return String.format("%s@%s", gooSubjectIdentifier, domain);
+			} else {
+				return gooSubjectIdentifier;
+			}
+		} else {
+			return addressFormatter.qualifySubjectAddress(subject.getId());
+		}
+	}
 }
 
