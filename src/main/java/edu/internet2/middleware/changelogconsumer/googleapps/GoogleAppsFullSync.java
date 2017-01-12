@@ -19,6 +19,7 @@ import com.google.api.services.admin.directory.model.Group;
 import com.google.api.services.admin.directory.model.Member;
 import com.google.api.services.admin.directory.model.User;
 import edu.internet2.middleware.changelogconsumer.googleapps.cache.GoogleCacheManager;
+import edu.internet2.middleware.changelogconsumer.googleapps.utils.AllowLargeGroupsUtils;
 import edu.internet2.middleware.changelogconsumer.googleapps.utils.ComparableGroupItem;
 import edu.internet2.middleware.changelogconsumer.googleapps.utils.ComparableMemberItem;
 import edu.internet2.middleware.changelogconsumer.googleapps.utils.GoogleAppsSyncProperties;
@@ -57,6 +58,7 @@ public class GoogleAppsFullSync {
     private GoogleGrouperConnector connector;
     private String consumerName;
     private GoogleAppsSyncProperties properties;
+    private AllowLargeGroupsUtils allowLargeGroupsUtils;
 
     public GoogleAppsFullSync(String consumerName) {
         this.consumerName = consumerName;
@@ -106,6 +108,7 @@ public class GoogleAppsFullSync {
         GoogleCacheManager.googleGroups().clear();
 
         properties = new GoogleAppsSyncProperties(consumerName);
+        this.allowLargeGroupsUtils = new AllowLargeGroupsUtils(properties);
 
         Pattern googleGroupFilter = Pattern.compile(properties.getGoogleGroupFilter());
 
@@ -290,6 +293,10 @@ public class GoogleAppsFullSync {
     }
 
     private void processMissingGroupMembers(ComparableGroupItem group, Collection<ComparableMemberItem> missingMembers, Group gooGroup, boolean dryRun) {
+        if (allowLargeGroupsUtils.blockNewMember(group.getGrouperGroup())) {
+            return;
+        }
+
         for (ComparableMemberItem member : missingMembers) {
             LOG.info("Google Apps Consume '{}' Full Sync - Creating missing user/member ({}) from extra group ({}).", new Object[]{consumerName, member.getEmail(), group.getName()});
             if (!dryRun) {

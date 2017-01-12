@@ -92,6 +92,10 @@ public class GoogleAppsSyncProperties {
     private int recentlyManipulatedQueueSize;
     private int recentlyManipulatedQueueDelay;
 
+    /** The number of members to allow before blocking the addition of new members and the attribute to override the limit*/
+    private int largeGroupSize;
+    private String allowLargeGroupsAttributeDefName;
+
     public GoogleAppsSyncProperties(String consumerName) {
         final String qualifiedParameterNamespace = PARAMETER_NAMESPACE + consumerName + ".";
 
@@ -174,6 +178,13 @@ public class GoogleAppsSyncProperties {
         recentlyManipulatedQueueDelay =
                 GrouperLoaderConfig.retrieveConfig().propertyValueInt(qualifiedParameterNamespace + "recentlyManipulatedQueueDelay", 2);
         LOG.debug("Google Apps Consumer - Setting recentlyManipulatedQueueDelay to {}", recentlyManipulatedQueueDelay);
+
+        largeGroupSize = GrouperLoaderConfig.retrieveConfig().propertyValueInt(qualifiedParameterNamespace + "largeGroupSize", 1000);
+        LOG.debug("Google Apps Consumer - Setting largeGroupSize to {}", largeGroupSize);
+
+        //allow the admin to point to a different, or shared (among other google provisioners) attributeDefName
+        allowLargeGroupsAttributeDefName = GrouperLoaderConfig.retrieveConfig().propertyValueString(qualifiedParameterNamespace + "allowLargeGroupsAttributeDefName", "etc:attribute:googleProvisioner:allowLargeGroups");
+        LOG.debug("Google Apps Consumer - Setting allowLargeGroupsAttributeDefName to {}", allowLargeGroupsAttributeDefName);
 
         defaultGroupSettings.setWhoCanViewMembership(
                 GrouperLoaderConfig.retrieveConfig().propertyValueString(qualifiedParameterNamespace + "whoCanViewMembership", "ALL_IN_DOMAIN_CAN_VIEW"));
@@ -279,7 +290,7 @@ public class GoogleAppsSyncProperties {
         ignoreExtraGoogleGroups = GrouperLoaderConfig.retrieveConfig().propertyValueBoolean(qualifiedParameterNamespace + "ignoreExtraGoogleGroups", false);
         LOG.debug("Google Apps Consumer - Setting ignoreExtraGoogleGroups to {}", ignoreExtraGoogleGroups);
 
-	attributeForGooUserLookup = GrouperLoaderConfig.retrieveConfig().propertyValueString(qualifiedParameterNamespace + "attributeForGooUserLookup", null);
+	    attributeForGooUserLookup = GrouperLoaderConfig.retrieveConfig().propertyValueString(qualifiedParameterNamespace + "attributeForGooUserLookup", null);
         LOG.debug("Google Apps Consumer - Setting attributeForGooUserLookup to {}", attributeForGooUserLookup);
 
         appendDomainToGooUserAttribute = GrouperLoaderConfig.retrieveConfig().propertyValueBoolean(qualifiedParameterNamespace + "appendDomainToGooUserAttribute", false);
@@ -378,6 +389,14 @@ public class GoogleAppsSyncProperties {
 
     public int getRecentlyManipulatedQueueDelay() {
         return recentlyManipulatedQueueDelay;
+    }
+
+    public int getLargeGroupSize() {
+        return largeGroupSize;
+    }
+
+    public String getAllowLargeGroupsAttributeDefName() {
+        return allowLargeGroupsAttributeDefName;
     }
 
 	public String getAttributeForGooUserLookup() {
