@@ -1,3 +1,4 @@
+#!/usr/bin/env bash
 docker-compose rm -f
 rm -r ./grouper/temp/
 mkdir -p ./grouper/temp/

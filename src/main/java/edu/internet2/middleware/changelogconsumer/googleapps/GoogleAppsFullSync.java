@@ -27,6 +27,11 @@ import edu.internet2.middleware.grouper.GrouperSession;
 import edu.internet2.middleware.grouper.MemberFinder;
 import edu.internet2.middleware.subject.Subject;
 import edu.internet2.middleware.subject.provider.SubjectTypeEnum;
+import org.apache.commons.collections.CollectionUtils;
+import org.apache.commons.lang.time.StopWatch;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.IOException;
 import java.security.GeneralSecurityException;
 import java.util.ArrayList;
@@ -36,11 +41,6 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.regex.Pattern;
-
-import org.apache.commons.collections.CollectionUtils;
-import org.apache.commons.lang.time.StopWatch;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * Initiates a GoogleAppsFullSync from command-line
@@ -355,11 +355,15 @@ public class GoogleAppsFullSync {
     private void processExtraGroups(boolean dryRun, Collection<ComparableGroupItem> extraGroups) {
         for (ComparableGroupItem item : extraGroups) {
           if (!properties.shouldIgnoreExtraGoogleGroups()) {
-            LOG.info("Google Apps Consumer '{}' Full Sync - removing extra Google group: {}", consumerName, item);
+            LOG.info("Google Apps Consumer '{}' Full Sync - removing or emptying extra Google group: {}", consumerName, item);
 
             if (!dryRun) {
                 try {
-                    connector.deleteGooGroupByEmail(item.getName());
+                    if (item.getGrouperGroup().getAttributeValueDelegate().retrieveValueString(connector.getSyncAttributeDefName()).equalsIgnoreCase("no")) {
+                        connector.emptyGooGroup(item.getGrouperGroup());
+                    } else {
+                        connector.deleteGooGroupByEmail(item.getName());
+                    }
                 } catch (IOException e) {
                     LOG.error("Google Apps Consume '{}' Full Sync - Error removing extra group ({}): {}", new Object[]{consumerName, item.getName(), e.getMessage()});
                 }
