@@ -391,6 +391,16 @@ public class GoogleGrouperConnector {
         syncedObjects.remove(groupName);
     }
 
+    public void emptyGooGroup(edu.internet2.middleware.grouper.Group group) throws IOException {
+        final String groupKey = addressFormatter.qualifyGroupAddress(group.getName());
+
+        List<Member> members = getGooMembership(groupKey);
+
+        for (Member member : members) {
+            removeGooMembership(groupKey, member.getEmail());
+        }
+    }
+
     public void deleteGooGroupByEmail(String groupKey) throws IOException {
         if (properties.getHandleDeletedGroup().equalsIgnoreCase("archive")) {
             recentlyManipulatedObjectsList.delayIfNeeded(groupKey);
@@ -651,5 +661,9 @@ public class GoogleGrouperConnector {
 			return addressFormatter.qualifySubjectAddress(subject.getId());
 		}
 	}
+
+	public String getSyncAttributeDefName() {
+	    return this.syncAttributeDefName;
+    }
 }
 

@@ -21,22 +21,26 @@ import edu.internet2.middleware.changelogconsumer.googleapps.cache.GoogleCacheMa
 import edu.internet2.middleware.changelogconsumer.googleapps.utils.AllowLargeGroupsUtils;
 import edu.internet2.middleware.changelogconsumer.googleapps.utils.GoogleAppsSyncProperties;
 import edu.internet2.middleware.grouper.*;
-import edu.internet2.middleware.grouper.attr.AttributeDefName;
-import edu.internet2.middleware.grouper.attr.assign.AttributeAssignType;
-import edu.internet2.middleware.grouper.changeLog.*;
 import edu.internet2.middleware.grouper.Stem.Scope;
-import edu.internet2.middleware.grouper.privs.Privilege;
+import edu.internet2.middleware.grouper.attr.AttributeDefName;
+import edu.internet2.middleware.grouper.attr.assign.AttributeAssign;
+import edu.internet2.middleware.grouper.attr.assign.AttributeAssignType;
+import edu.internet2.middleware.grouper.attr.finder.AttributeAssignFinder;
+import edu.internet2.middleware.grouper.changeLog.*;
+import edu.internet2.middleware.grouper.pit.finder.PITGroupFinder;
 import edu.internet2.middleware.subject.Subject;
 import edu.internet2.middleware.subject.SubjectType;
 import edu.internet2.middleware.subject.provider.SubjectTypeEnum;
-import edu.internet2.middleware.grouper.pit.finder.PITGroupFinder;
-import java.io.IOException;
-import java.util.*;
 import org.apache.commons.lang.builder.ToStringBuilder;
 import org.apache.commons.lang.builder.ToStringStyle;
 import org.apache.commons.lang.time.StopWatch;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Set;
 
 
 /**
@@ -48,6 +52,22 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
 
     /** Maps change log entry category and action (change log type) to methods. */
     enum EventType {
+
+        /** Process the add attribute assign value change log entry type. */
+        attributeAssignValue__addAttributeAssignValue {
+            /** {@inheritDoc} */
+            public void process(GoogleAppsChangeLogConsumer consumer, ChangeLogEntry changeLogEntry) throws Exception {
+                consumer.processAttributeAssignValueAdd(consumer, changeLogEntry);
+            }
+        },
+
+        /** Process the delete attribute assign value change log entry type. */
+        attributeAssignValue__deleteAttributeAssignValue {
+            /** {@inheritDoc} */
+            public void process(GoogleAppsChangeLogConsumer consumer, ChangeLogEntry changeLogEntry) throws Exception {
+                //consumer.processAttributeAssignValueDelete(consumer, changeLogEntry);
+            }
+        },
 
         /** Process the add attribute assign value change log entry type. */
         attributeAssign__addAttributeAssign {
@@ -330,43 +350,6 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
      */
     protected void processAttributeAssignAdd(GoogleAppsChangeLogConsumer consumer, ChangeLogEntry changeLogEntry) {
 
-        LOG.debug("Google Apps Consumer '{}' - Change log entry '{}' Processing add attribute assign value.", consumerName,
-                toString(changeLogEntry));
-
-        final String attributeDefNameId = changeLogEntry.retrieveValueForLabel(ChangeLogLabels.ATTRIBUTE_ASSIGN_ADD.attributeDefNameId);
-        final String assignType = changeLogEntry.retrieveValueForLabel(ChangeLogLabels.ATTRIBUTE_ASSIGN_ADD.assignType);
-        final String ownerId = changeLogEntry.retrieveValueForLabel(ChangeLogLabels.ATTRIBUTE_ASSIGN_ADD.ownerId1);
-
-        if (syncAttribute.getId().equalsIgnoreCase(attributeDefNameId)) {
-
-            if (AttributeAssignType.valueOf(assignType) == AttributeAssignType.group) {
-                final edu.internet2.middleware.grouper.Group group = GroupFinder.findByUuid(GrouperSession.staticGrouperSession(), ownerId, false);
-                if (group == null) {
-                  return;  // group was deleted
-                }
-
-                try {
-                    connector.createGooGroupIfNecessary(group);
-                } catch (IOException e) {
-                    LOG.error("Google Apps Consumer '{}' - Change log entry '{}' Error processing group add: {}", new Object[] {consumerName, toString(changeLogEntry), e});
-                }
-
-            } else if (AttributeAssignType.valueOf(assignType) == AttributeAssignType.stem) {
-                final Stem stem = StemFinder.findByUuid(GrouperSession.staticGrouperSession(), ownerId, false);
-                if (stem == null) {
-                  return;  // stem was deleted
-                }
-                final Set<edu.internet2.middleware.grouper.Group> groups = stem.getChildGroups(Scope.SUB);
-
-                for (edu.internet2.middleware.grouper.Group group : groups) {
-                    try {
-                        connector.createGooGroupIfNecessary(group);
-                    } catch (IOException e) {
-                        LOG.error("Google Apps Consumer '{}' - Change log entry '{}' Error processing group add, continuing: {}", new Object[] {consumerName, toString(changeLogEntry), e});
-                    }
-                }
-            }
-        }
     }
 
     /**
@@ -404,13 +387,76 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
                 final Stem stem = StemFinder.findByUuid(GrouperSession.staticGrouperSession(), ownerId, false);
                 if (stem != null){
                     final Set<edu.internet2.middleware.grouper.Group> groups = stem.getChildGroups(Scope.SUB);
-                    
+
                     for (edu.internet2.middleware.grouper.Group group : groups) {
                         try {
                             connector.deleteGooGroup(group);
                         } catch (IOException e) {
                             LOG.error("Google Apps Consumer '{}' - Change log entry '{}' Error processing group add, continuing: {}", new Object[] {consumerName, toString(changeLogEntry), e});
                         }
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Add an attribute value.
+     *
+     * @param consumer the change log consumer
+     * @param changeLogEntry the change log entry
+     */
+    protected void processAttributeAssignValueAdd(GoogleAppsChangeLogConsumer consumer, ChangeLogEntry changeLogEntry) {
+
+        LOG.debug("Google Apps Consumer '{}' - Change log entry '{}' Processing add attribute assign value.", consumerName,
+                toString(changeLogEntry));
+
+        final String attributeDefNameId = changeLogEntry.retrieveValueForLabel(ChangeLogLabels.ATTRIBUTE_ASSIGN_VALUE_ADD.attributeDefNameId);
+        final String attributeAssignId = changeLogEntry.retrieveValueForLabel(ChangeLogLabels.ATTRIBUTE_ASSIGN_VALUE_ADD.attributeAssignId);
+        final String value = changeLogEntry.retrieveValueForLabel(ChangeLogLabels.ATTRIBUTE_ASSIGN_VALUE_ADD.value);
+
+        final AttributeAssign attributeAssign = AttributeAssignFinder.findById(attributeAssignId, false);
+
+        if (attributeAssign == null || value == null || value.isEmpty()) {
+            return; //group was deleted, or the attribute value is empty
+        }
+
+        final String assignType = attributeAssign.getAttributeAssignType().name();
+
+        if (syncAttribute.getId().equalsIgnoreCase(attributeDefNameId)) {
+
+            if (AttributeAssignType.valueOf(assignType) == AttributeAssignType.group) {
+                final edu.internet2.middleware.grouper.Group group = GroupFinder.findByUuid(GrouperSession.staticGrouperSession(), attributeAssign.getOwnerGroupId(), false);
+                if (group == null) {
+                  return;  // group was deleted
+                }
+
+                try {
+                    if (value.equalsIgnoreCase("yes")) {
+                        connector.createGooGroupIfNecessary(group);
+                    } else if (value.equalsIgnoreCase("no")) {
+                        connector.emptyGooGroup(group);
+                    }
+                } catch (IOException e) {
+                    LOG.error("Google Apps Consumer '{}' - Change log entry '{}' Error processing group add: {}", new Object[] {consumerName, toString(changeLogEntry), e});
+                }
+
+            } else if (AttributeAssignType.valueOf(assignType) == AttributeAssignType.stem) {
+                final Stem stem = StemFinder.findByUuid(GrouperSession.staticGrouperSession(), attributeAssign.getOwnerStemId(), false);
+                if (stem == null) {
+                  return;  // stem was deleted
+                }
+                final Set<edu.internet2.middleware.grouper.Group> groups = stem.getChildGroups(Scope.SUB);
+
+                for (edu.internet2.middleware.grouper.Group group : groups) {
+                    try {
+                        if (value.equalsIgnoreCase("yes")) {
+                            connector.createGooGroupIfNecessary(group);
+                        } else if (value.equalsIgnoreCase("no")) {
+                            connector.emptyGooGroup(group);
+                        }
+                    } catch (IOException e) {
+                        LOG.error("Google Apps Consumer '{}' - Change log entry '{}' Error processing group add, continuing: {}", new Object[] {consumerName, toString(changeLogEntry), e});
                     }
                 }
             }
@@ -455,16 +501,10 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
         LOG.debug("Google Apps Consumer '{}' - Change log entry '{}' Processing group delete.", consumerName, toString(changeLogEntry));
 
         final String groupName = changeLogEntry.retrieveValueForLabel(ChangeLogLabels.GROUP_DELETE.name);
-        final edu.internet2.middleware.grouper.Group grouperGroup = connector.fetchGrouperGroup(groupName);
 
-        if (!connector.shouldSyncGroup(grouperGroup)) {
-            LOG.debug("Google Apps Consumer '{}' - Change log entry '{}' Skipping group delete, nothing to do cause the group is not flagged or is gone.", consumerName,
-                    toString(changeLogEntry));
-            return;
-        }
-
+        // Attempt to delete from google regardless of status since there maybe remnants that we stop syncing because of attribute value, but now we want it gone.
         try {
-            connector.deleteGooGroup(grouperGroup);
+            connector.deleteGooGroupByName(groupName);
         } catch (IOException e) {
             LOG.error("Google Apps Consumer '{}' - Change log entry '{}' Error processing group delete: {}", new Object[] {consumerName, toString(changeLogEntry), e.getMessage()});
         }
