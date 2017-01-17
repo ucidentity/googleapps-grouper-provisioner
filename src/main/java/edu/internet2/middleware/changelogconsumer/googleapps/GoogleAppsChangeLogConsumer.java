@@ -501,16 +501,10 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
         LOG.debug("Google Apps Consumer '{}' - Change log entry '{}' Processing group delete.", consumerName, toString(changeLogEntry));
 
         final String groupName = changeLogEntry.retrieveValueForLabel(ChangeLogLabels.GROUP_DELETE.name);
-        final edu.internet2.middleware.grouper.Group grouperGroup = connector.fetchGrouperGroup(groupName);
 
-        if (!connector.shouldSyncGroup(grouperGroup)) {
-            LOG.debug("Google Apps Consumer '{}' - Change log entry '{}' Skipping group delete, nothing to do cause the group is not flagged or is gone.", consumerName,
-                    toString(changeLogEntry));
-            return;
-        }
-
+        // Attempt to delete from google regardless of status since there maybe remnants that we stop syncing because of attribute value, but now we want it gone.
         try {
-            connector.deleteGooGroup(grouperGroup);
+            connector.deleteGooGroupByName(groupName);
         } catch (IOException e) {
             LOG.error("Google Apps Consumer '{}' - Change log entry '{}' Error processing group delete: {}", new Object[] {consumerName, toString(changeLogEntry), e.getMessage()});
         }
