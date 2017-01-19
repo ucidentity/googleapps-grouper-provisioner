@@ -66,7 +66,7 @@ import java.util.Set;
 public class GoogleGrouperConnector {
     public static final String SYNC_TO_GOOGLE = "syncToGoogle";
     public static final String GOOGLE_PROVISIONER = "googleProvisioner";
-    public static final String ATTRIBUTE_CONFIG_STEM = "etc:attribute";
+    public static final String ATTRIBUTE_CONFIG_STEM = "etc:attribute:provisioningTargets";
     public static final String GOOGLE_CONFIG_STEM = ATTRIBUTE_CONFIG_STEM + ":" + GOOGLE_PROVISIONER;
     public static final String SYNC_TO_GOOGLE_NAME = GOOGLE_CONFIG_STEM + ":" + SYNC_TO_GOOGLE;
 
