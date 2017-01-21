@@ -262,7 +262,7 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
                 }
 
                 // if the change log context id has changed, log and restart stop watch
-                if (!lastContextId.equals(changeLogEntry.getContextId())) {
+                if (lastContextId != null && !lastContextId.equals(changeLogEntry.getContextId())) {
                     stopWatch.stop();
                     LOG.debug("Google Apps Consumer '{}' - Processed change log context '{}' Elapsed time {}", new Object[] {consumerName,
                             lastContextId, stopWatch,});
