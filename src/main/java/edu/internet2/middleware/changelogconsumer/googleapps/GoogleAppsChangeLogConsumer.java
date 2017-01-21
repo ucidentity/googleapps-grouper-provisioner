@@ -216,6 +216,7 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
 
             // time context processing
             final StopWatch stopWatch = new StopWatch();
+            boolean stopWatchRunning = false;
 
             // the last change log sequence number processed
             String lastContextId = null;
@@ -239,7 +240,9 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
 
                 // if first run, start the stop watch and store the last sequence number
                 if (lastContextId == null) {
-                    stopWatch.start();
+                    if (!stopWatchRunning) {
+                        stopWatch.start();
+                    }
                     lastContextId = changeLogEntry.getContextId();
                 }
 
@@ -263,9 +266,11 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
 
                 // if the change log context id has changed, log and restart stop watch
                 if (lastContextId != null && !lastContextId.equals(changeLogEntry.getContextId())) {
-                    stopWatch.stop();
-                    LOG.debug("Google Apps Consumer '{}' - Processed change log context '{}' Elapsed time {}", new Object[] {consumerName,
-                            lastContextId, stopWatch,});
+                    if (stopWatchRunning) {
+                        stopWatch.stop();
+                        LOG.debug("Google Apps Consumer '{}' - Processed change log context '{}' Elapsed time {}", new Object[]{consumerName,
+                                lastContextId, stopWatch,});
+                    }
                     stopWatch.reset();
                     stopWatch.start();
                 }
@@ -284,7 +289,9 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
             }
 
             // stop the timer and log
-            stopWatch.stop();
+            if (stopWatchRunning) {
+                stopWatch.stop();
+            }
             LOG.debug("Google Apps Consumer '{}' - Processed change log context '{}' Elapsed time {}", new Object[] {consumerName,
                     lastContextId, stopWatch,});
 
