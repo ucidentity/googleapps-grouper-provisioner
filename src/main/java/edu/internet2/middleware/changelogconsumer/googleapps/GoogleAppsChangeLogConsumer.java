@@ -242,6 +242,7 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
                 if (lastContextId == null) {
                     if (!stopWatchRunning) {
                         stopWatch.start();
+                        stopWatchRunning = true;
                     }
                     lastContextId = changeLogEntry.getContextId();
                 }
@@ -273,6 +274,7 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
                     }
                     stopWatch.reset();
                     stopWatch.start();
+                    stopWatchRunning = true;
                 }
 
                 if (changeLogEntry.getContextId() != null) {
