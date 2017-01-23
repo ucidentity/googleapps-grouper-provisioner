@@ -1,6 +1,7 @@
 package edu.internet2.middleware.changelogconsumer.googleapps.utils;
 
 import edu.internet2.middleware.grouper.Group;
+import edu.internet2.middleware.grouper.GrouperSession;
 import edu.internet2.middleware.grouper.attr.AttributeDefName;
 import edu.internet2.middleware.grouper.attr.finder.AttributeDefNameFinder;
 import org.slf4j.Logger;
@@ -19,7 +20,9 @@ public class AllowLargeGroupsUtils {
     public AllowLargeGroupsUtils(GoogleAppsSyncProperties properties) {
         this.properties = properties;
 
+        GrouperSession grouperSession = GrouperSession.startRootSession();
         this.allowLargeGroupsAttributeDefName = AttributeDefNameFinder.findByName(properties.getAllowLargeGroupsAttributeDefName(), false);
+        GrouperSession.stopQuietly(grouperSession);
 
         if (allowLargeGroupsAttributeDefName == null) {
             LOG.warn("{} attribute def name does not exists. Override functionality will not work.", properties.getAllowLargeGroupsAttributeDefName());
