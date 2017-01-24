@@ -200,6 +200,11 @@ public class GoogleGrouperConnector {
     }
 
     public User fetchGooUser(String userKey) {
+        if (userKey == null) {
+            LOG.warn("userKey is null");
+            return null;
+        }
+
         User user = GoogleCacheManager.googleUsers().get(userKey);
         if (user == null) {
             try {
