@@ -565,15 +565,19 @@ public class GoogleGrouperConnector {
         final String groupKey = addressFormatter.qualifyGroupAddress(groupName);
         final String userKey = fetchGooUserIdentifier(subject);
 
-        recentlyManipulatedObjectsList.delayIfNeeded(userKey);
-        GoogleAppsSdkUtils.removeGroupMember(directoryClient, groupKey, userKey);
-        recentlyManipulatedObjectsList.add(userKey);
+        if (userKey != null && !userKey.isEmpty()) {
+            recentlyManipulatedObjectsList.delayIfNeeded(userKey);
+            GoogleAppsSdkUtils.removeGroupMember(directoryClient, groupKey, userKey);
+            recentlyManipulatedObjectsList.add(userKey);
 
-        if (properties.shouldDeprovisionUsers()) {
-            //FUTURE: check if the user has other memberships and if not, initiate the removal here.
-        }
+            if (properties.shouldDeprovisionUsers()) {
+                //FUTURE: check if the user has other memberships and if not, initiate the removal here.
+            }
 
+        } else {
+            LOG.debug("{} does not have a valid Google email adress assigned", subject.getName());
         }
+    }
 
     public void removeGooMembership(String groupKey, String subjectEmail) throws IOException {
       recentlyManipulatedObjectsList.delayIfNeeded(subjectEmail);
