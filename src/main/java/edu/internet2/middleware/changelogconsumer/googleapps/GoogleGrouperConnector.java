@@ -337,7 +337,11 @@ public class GoogleGrouperConnector {
           unarchiveGooGroupIfNecessary(googleGroup);
         }
 
+        //Get Member, admins, updaters Subjects
         Set<edu.internet2.middleware.grouper.Member> members = grouperGroup.getMembers();
+        members.addAll(grouperGroup.getMembers(FieldFinder.find("admins", false)));
+        members.addAll(grouperGroup.getMembers(FieldFinder.find("updaters", false)));
+
         for (edu.internet2.middleware.grouper.Member member : members) {
             if (member.getSubjectType() == SubjectTypeEnum.PERSON) {
                 Subject subject = fetchGrouperSubject(member.getSubjectSourceId(), member.getSubjectId());
