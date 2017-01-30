@@ -45,4 +45,9 @@ public class AllowLargeGroupsUtils {
         return true;
 
     }
+
+    public String getAttributeDefNameId() {
+        return allowLargeGroupsAttributeDefName == null ? "" : allowLargeGroupsAttributeDefName.getId();
+
+    }
 }

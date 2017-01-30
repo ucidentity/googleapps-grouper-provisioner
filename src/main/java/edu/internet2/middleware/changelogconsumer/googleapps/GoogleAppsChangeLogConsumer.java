@@ -469,6 +469,22 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
                     }
                 }
             }
+        } else if (allowLargeGroupsUtils.getAttributeDefNameId().equalsIgnoreCase(attributeDefNameId)) {
+            final edu.internet2.middleware.grouper.Group group = GroupFinder.findByUuid(GrouperSession.staticGrouperSession(), attributeAssign.getOwnerGroupId(), false);
+
+            if (group == null) {
+                return;  // group was deleted
+            }
+
+            try {
+                if (value.equalsIgnoreCase("yes") && connector.shouldSyncGroup(group)) {
+                    connector.createGooGroupIfNecessary(group);
+                } else if (value.equalsIgnoreCase("no")) {
+                    connector.emptyGooGroup(group);
+                }
+            } catch (IOException e) {
+                LOG.error("Google Apps Consumer '{}' - Change log entry '{}' Error processing group add of allowLargeGroups: {}", new Object[] {consumerName, toString(changeLogEntry), e});
+            }
         }
     }
 
