@@ -543,7 +543,7 @@ public class GoogleAppsSdkUtils {
         JsonBatchCallback<Void> callbackMember = new JsonBatchCallback<Void>() {
 
             public void onSuccess(Void email, HttpHeaders responseHeaders) {
-                LOG.debug("remoeGroupMembersBulk() - successfully removed member: (no identifier returned)";
+                LOG.debug("removeGroupMembersBulk() - successfully removed member: (no identifier returned)");
                 updatedMembers.add(email);
             }
 
