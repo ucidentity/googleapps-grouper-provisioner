@@ -326,14 +326,20 @@ public class GoogleAppsFullSync {
     }
 
     private void processExtraGroupMembers(ComparableGroupItem group, Collection<ComparableMemberItem> extraMembers, boolean dryRun) {
+        List<Member> groupMembers = new ArrayList<Member>();
+
         for (ComparableMemberItem member : extraMembers) {
             LOG.info("Google Apps Consume '{}' Full Sync - Removing extra member ({}) from matched group ({})", new Object[]{consumerName, member.getEmail(), group.getName()});
-            if (!dryRun) {
-                try {
-                    connector.removeGooMembership(group.getName(), member.getGrouperMember().getSubject());
-                } catch (IOException e) {
-                    LOG.warn("Google Apps Consume '{}' - Error removing membership ({}) from Google Group ({}): {}", new Object[]{consumerName, member.getEmail(), group.getName(), e.getMessage()});
-                }
+            Member extraMember = new Member();
+            extraMember.setEmail(member.getEmail());
+            groupMembers.add(extraMember);
+        }
+
+        if (!dryRun) {
+            try {
+                GoogleAppsSdkUtils.removeGroupMembersBulk(connector.getDirectoryClient(), group.getName(), groupMembers);
+            } catch (IOException e) {
+                LOG.warn("Google Apps Consume '{}' Full Sync - Removing extra members from matched group ({}); see previous statements", group.getName());
             }
         }
     }

@@ -16,18 +16,23 @@
 package edu.internet2.middleware.changelogconsumer.googleapps;
 
 import com.google.api.client.googleapis.auth.oauth2.GoogleCredential;
+import com.google.api.client.googleapis.batch.BatchRequest;
+import com.google.api.client.googleapis.batch.json.JsonBatchCallback;
 import com.google.api.client.googleapis.json.GoogleJsonError;
 import com.google.api.client.googleapis.json.GoogleJsonResponseException;
-import com.google.api.client.json.JsonFactory;
+import com.google.api.client.http.HttpHeaders;
 import com.google.api.client.http.HttpTransport;
+import com.google.api.client.json.JsonFactory;
 import com.google.api.services.admin.directory.Directory;
 import com.google.api.services.admin.directory.DirectoryRequest;
 import com.google.api.services.admin.directory.DirectoryScopes;
 import com.google.api.services.admin.directory.model.*;
-import com.google.api.services.admin.directory.model.Groups;
 import com.google.api.services.groupssettings.Groupssettings;
 import com.google.api.services.groupssettings.GroupssettingsRequest;
 import com.google.api.services.groupssettings.GroupssettingsScopes;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.File;
 import java.io.IOException;
 import java.security.GeneralSecurityException;
@@ -35,8 +40,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Random;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * GoogleAppsSdkUtils is a helper class that interfaces with the Google SDK Admin API and handles exponential back-off.
@@ -144,7 +147,6 @@ public class GoogleAppsSdkUtils {
 
         execute(request);
     }
-
 
     /**
      * addGroup adds a group to Google.
@@ -462,6 +464,50 @@ public class GoogleAppsSdkUtils {
     }
 
     /**
+     * addGroupMemberBatch adds a group to Google.
+     * @param directoryClient a Directory client
+     * @param groupKey an identifier for a user (e-mail address is the most popular)
+     * @param members list of members
+     * @return the new Group object created/returned by Google
+     * @throws IOException
+     */
+    public static List<Member> addGroupMembersBulk(Directory directoryClient, String groupKey, List<Member> members) throws IOException {
+        LOG.debug("addGroupMembersBulk() - {}", groupKey);
+
+        final List<Member> updatedMembers = new ArrayList<Member>();
+        JsonBatchCallback<Member> callbackMember = new JsonBatchCallback<Member>() {
+
+            public void onSuccess(Member member, HttpHeaders responseHeaders) {
+                LOG.debug("addGroupMembersBulk() - successfully added member: {}", member);
+                updatedMembers.add(member);
+            }
+
+            public void onFailure(GoogleJsonError e, HttpHeaders responseHeaders) {
+                LOG.debug(e.getMessage());
+                for (GoogleJsonError.ErrorInfo error : e.getErrors()) {
+                    LOG.debug("{} - {} " + error.getMessage(), error.getReason());
+                }
+            }
+        };
+
+        BatchRequest batch = directoryClient.batch();
+
+        try {
+            for (Member member : members) {
+                LOG.debug("addGroupMembersBulk() - queuing member add: {}", member);
+                directoryClient.members().insert(groupKey, member).queue(batch, callbackMember);
+            }
+
+            execute(batch);
+        } catch (IOException e) {
+            LOG.error("An unknown error occurred: " + e);
+        }
+
+        LOG.debug("bulk add member completed: {}", updatedMembers.size());
+        return updatedMembers;
+    }
+
+    /**
      * removeGroupMember removes a member of a group.
      * @param directoryClient a Directory client
      * @param groupKey an identifier for a user (e-mail address is the most popular)
@@ -481,6 +527,51 @@ public class GoogleAppsSdkUtils {
 
         execute(request);
     }
+
+    /**
+     * removeGroupMembersBatch adds a group to Google.
+     * @param directoryClient a Directory client
+     * @param groupKey an identifier for a user (e-mail address is the most popular)
+     * @param members list of members
+     * @return the new Group object created/returned by Google
+     * @throws IOException
+     */
+    public static List<Void> removeGroupMembersBulk(Directory directoryClient, String groupKey, List<Member> members) throws IOException {
+        LOG.debug("removeGroupMembersBulk() - {}", groupKey);
+
+        final List<Void> updatedMembers = new ArrayList<Void>();
+        JsonBatchCallback<Void> callbackMember = new JsonBatchCallback<Void>() {
+
+            public void onSuccess(Void email, HttpHeaders responseHeaders) {
+                LOG.debug("remoeGroupMembersBulk() - successfully removed member: (no identifier returned)";
+                updatedMembers.add(email);
+            }
+
+            public void onFailure(GoogleJsonError e, HttpHeaders responseHeaders) {
+                LOG.debug(e.getMessage());
+                for (GoogleJsonError.ErrorInfo error : e.getErrors()) {
+                    LOG.debug("{} - {} " + error.getMessage(), error.getReason());
+                }
+            }
+        };
+
+        BatchRequest batch = directoryClient.batch();
+
+        try {
+            for (Member member : members) {
+                LOG.debug("removeGroupMembersBulk() - queuing member delete: {}", member);
+                directoryClient.members().delete(groupKey, member.getEmail()).queue(batch, callbackMember);
+            }
+
+            execute(batch);
+        } catch (IOException e) {
+            LOG.error("An unknown error occurred: " + e);
+        }
+
+        LOG.debug("bulk remove member completed: {}", updatedMembers.size());
+        return updatedMembers;
+    }
+
 
     /**
      * handleGoogleJsonResponseException makes the handling of exponential back-off easy.
@@ -632,5 +723,55 @@ public class GoogleAppsSdkUtils {
         }
 
     }
+
+
+    /**
+     * execute takes a BatchRequest and calls the execute() method and handles exponential back-off, etc.
+     * @param batch a populated BatchRequst object
+     * @return an output Object that should be cast in the calling method
+     * @throws IOException
+     */
+    private static void execute(BatchRequest batch) throws IOException {
+        execute(batch, 1);
+    }
+
+    /**
+     * execute takes a BatchRequest and calls the execute() method and handles exponential back-off, etc.
+     * @param batch a populated BatchRequest object
+     * @param interval the count of attempts that this request has had.
+     * @return an output Object that should be cast in the calling method
+     * @throws IOException
+     */
+    private static void execute(BatchRequest batch, int interval) throws IOException {
+        LOG.trace("batch execute() - {} request attempt #{}",batch.getClass().getName().replace(batch.getClass().getPackage().getName(), ""), interval);
+
+        try {
+            batch.execute();
+        } catch (GoogleJsonResponseException ex) {
+            if (interval == 7) {
+                LOG.error("execute() - Retried attempt 7 times, failing request");
+                throw ex;
+
+            } else {
+                if (handleGoogleJsonResponseException(ex, interval)) { //404's return true
+                    return;
+                } else {
+                    execute(batch, ++interval);
+                }
+            }
+        } catch(IOException e) {
+            LOG.error("execute() - An unknown IO error occurred: " + e);
+
+            if (interval == 7) {
+                LOG.error("Retried attempt 7 times, failing request");
+                throw e;
+
+            } else {
+                execute(batch, ++interval);
+            }
+        }
+
+    }
+
 
 }

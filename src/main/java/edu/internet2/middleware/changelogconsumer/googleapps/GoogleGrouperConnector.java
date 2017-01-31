@@ -337,6 +337,13 @@ public class GoogleGrouperConnector {
           unarchiveGooGroupIfNecessary(googleGroup);
         }
 
+        List<Member> groupMembers = CollectMembers(grouperGroup, googleGroup);
+        GoogleAppsSdkUtils.addGroupMembersBulk(directoryClient, googleGroup.getEmail(), groupMembers);
+    }
+
+    private List<Member> CollectMembers(edu.internet2.middleware.grouper.Group grouperGroup, Group googleGroup) throws IOException {
+        List<Member> gooMembers = new ArrayList<Member>();
+
         //Get Member, admins, updaters Subjects
         Set<edu.internet2.middleware.grouper.Member> members = grouperGroup.getMembers();
         members.addAll(grouperGroup.getMembers(FieldFinder.find("admins", false)));
@@ -353,10 +360,15 @@ public class GoogleGrouperConnector {
                 }
 
                 if (user != null) {
-                    createGooMember(googleGroup, user, determineRole(member, grouperGroup));
-                }
+                    Member gooMember = new Member();
+                    gooMember.setEmail(user.getPrimaryEmail());
+                    gooMember.setRole(determineRole(member, grouperGroup));
+                    gooMembers.add(gooMember)
+;                }
             }
         }
+
+        return gooMembers;
     }
 
     public String determineRole(edu.internet2.middleware.grouper.Member member, edu.internet2.middleware.grouper.Group group) {
@@ -405,9 +417,7 @@ public class GoogleGrouperConnector {
 
         List<Member> members = getGooMembership(groupKey);
 
-        for (Member member : members) {
-            removeGooMembership(groupKey, member.getEmail());
-        }
+        GoogleAppsSdkUtils.removeGroupMembersBulk(directoryClient, groupKey, members);
     }
 
     public void deleteGooGroupByEmail(String groupKey) throws IOException {
@@ -678,5 +688,9 @@ public class GoogleGrouperConnector {
 	public String getSyncAttributeDefName() {
 	    return this.syncAttributeDefName;
     }
+
+    public Directory getDirectoryClient() {
+	    return this.directoryClient;
+	}
 }
 
