@@ -490,17 +490,21 @@ public class GoogleAppsSdkUtils {
             }
         };
 
-        BatchRequest batch = directoryClient.batch();
+        for (int i = 0; i < members.size(); i += 999) {
+            List<Member> sublist = members.subList(i, Math.min(i + 999, members.size()));
 
-        try {
-            for (Member member : members) {
-                LOG.debug("addGroupMembersBulk() - queuing member add: {}", member);
-                directoryClient.members().insert(groupKey, member).queue(batch, callbackMember);
+            BatchRequest batch = directoryClient.batch();
+
+            try {
+                for (Member member : sublist) {
+                    LOG.debug("addGroupMembersBulk() - queuing member add: {}", member);
+                    directoryClient.members().insert(groupKey, member).queue(batch, callbackMember);
+                }
+
+                execute(batch);
+            } catch (IOException e) {
+                LOG.error("An unknown error occurred: " + e);
             }
-
-            execute(batch);
-        } catch (IOException e) {
-            LOG.error("An unknown error occurred: " + e);
         }
 
         LOG.debug("bulk add member completed: {}", updatedMembers.size());
@@ -555,17 +559,20 @@ public class GoogleAppsSdkUtils {
             }
         };
 
-        BatchRequest batch = directoryClient.batch();
+        for (int i = 0; i < members.size(); i += 999) {
+            List<Member> sublist = members.subList(i, Math.min(i + 999, members.size()));
 
-        try {
-            for (Member member : members) {
-                LOG.debug("removeGroupMembersBulk() - queuing member delete: {}", member);
-                directoryClient.members().delete(groupKey, member.getEmail()).queue(batch, callbackMember);
+            BatchRequest batch = directoryClient.batch();
+            try {
+                for (Member member : sublist) {
+                    LOG.debug("removeGroupMembersBulk() - queuing member delete: {}", member);
+                    directoryClient.members().delete(groupKey, member.getEmail()).queue(batch, callbackMember);
+                }
+
+                execute(batch);
+            } catch (IOException e) {
+                LOG.error("An unknown error occurred: " + e);
             }
-
-            execute(batch);
-        } catch (IOException e) {
-            LOG.error("An unknown error occurred: " + e);
         }
 
         LOG.debug("bulk remove member completed: {}", updatedMembers.size());
