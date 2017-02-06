@@ -669,7 +669,7 @@ public class GoogleAppsSdkUtils {
                 }
             }
         } catch(IOException e) {
-            LOG.error("execute() - An unknown IO error occurred: " + e);
+            LOG.warn("execute() - An unknown IO error occurred: {}; attempting retry", e.toString());
 
             if (interval == 7) {
                 LOG.error("Retried attempt 7 times, failing request");
@@ -718,7 +718,7 @@ public class GoogleAppsSdkUtils {
                 }
             }
         } catch(IOException e) {
-            LOG.error("execute() - An unknown IO error occurred: " + e);
+            LOG.warn("execute() - An unknown IO error occurred: {}; attempting retry", e.toString());
 
             if (interval == 7) {
                 LOG.error("Retried attempt 7 times, failing request");
@@ -767,7 +767,7 @@ public class GoogleAppsSdkUtils {
                 }
             }
         } catch(IOException e) {
-            LOG.error("execute() - An unknown IO error occurred: " + e);
+            LOG.warn("execute() - An unknown IO error occurred: {}; attempting retry", e.toString());
 
             if (interval == 7) {
                 LOG.error("Retried attempt 7 times, failing request");
