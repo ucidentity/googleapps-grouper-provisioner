@@ -479,8 +479,6 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
             try {
                 if (value.equalsIgnoreCase("yes") && connector.shouldSyncGroup(group)) {
                     connector.createGooGroupIfNecessary(group);
-                } else if (value.equalsIgnoreCase("no")) {
-                    connector.emptyGooGroup(group);
                 }
             } catch (IOException e) {
                 LOG.error("Google Apps Consumer '{}' - Change log entry '{}' Error processing group add of allowLargeGroups: {}", new Object[] {consumerName, toString(changeLogEntry), e});
