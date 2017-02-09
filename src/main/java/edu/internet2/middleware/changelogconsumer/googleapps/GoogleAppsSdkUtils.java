@@ -475,20 +475,6 @@ public class GoogleAppsSdkUtils {
         LOG.debug("addGroupMembersBulk() - {}", groupKey);
 
         final List<Member> updatedMembers = new ArrayList<Member>();
-        JsonBatchCallback<Member> callbackMember = new JsonBatchCallback<Member>() {
-
-            public void onSuccess(Member member, HttpHeaders responseHeaders) {
-                LOG.debug("addGroupMembersBulk() - successfully added member: {}", member);
-                updatedMembers.add(member);
-            }
-
-            public void onFailure(GoogleJsonError e, HttpHeaders responseHeaders) {
-                LOG.debug(e.getMessage());
-                for (GoogleJsonError.ErrorInfo error : e.getErrors()) {
-                    LOG.debug("{} - {} " + error.getMessage(), error.getReason());
-                }
-            }
-        };
 
         for (int i = 0; i < members.size(); i += 999) {
             List<Member> sublist = members.subList(i, Math.min(i + 999, members.size()));
@@ -496,9 +482,23 @@ public class GoogleAppsSdkUtils {
             BatchRequest batch = directoryClient.batch();
 
             try {
-                for (Member member : sublist) {
+                for (final Member member : sublist) {
                     LOG.debug("addGroupMembersBulk() - queuing member add: {}", member);
-                    directoryClient.members().insert(groupKey, member).queue(batch, callbackMember);
+                    directoryClient.members().insert(groupKey, member).queue(batch, new JsonBatchCallback<Member>() {
+
+                        String key = member.getEmail();
+
+                        public void onSuccess(Member member, HttpHeaders responseHeaders) {
+                            LOG.debug("addGroupMembersBulk() - successfully added member: {}", member);
+                            updatedMembers.add(member);
+                        }
+
+                        public void onFailure(GoogleJsonError e, HttpHeaders responseHeaders) {
+                            for (GoogleJsonError.ErrorInfo error : e.getErrors()) {
+                                LOG.debug("{}: {} ", key, error.getReason());
+                            }
+                        }
+                    });
                 }
 
                 execute(batch);
@@ -544,29 +544,29 @@ public class GoogleAppsSdkUtils {
         LOG.debug("removeGroupMembersBulk() - {}", groupKey);
 
         final List<Void> updatedMembers = new ArrayList<Void>();
-        JsonBatchCallback<Void> callbackMember = new JsonBatchCallback<Void>() {
-
-            public void onSuccess(Void email, HttpHeaders responseHeaders) {
-                LOG.debug("removeGroupMembersBulk() - successfully removed member: (no identifier returned)");
-                updatedMembers.add(email);
-            }
-
-            public void onFailure(GoogleJsonError e, HttpHeaders responseHeaders) {
-                LOG.debug(e.getMessage());
-                for (GoogleJsonError.ErrorInfo error : e.getErrors()) {
-                    LOG.debug("{} - {} " + error.getMessage(), error.getReason());
-                }
-            }
-        };
 
         for (int i = 0; i < members.size(); i += 999) {
             List<Member> sublist = members.subList(i, Math.min(i + 999, members.size()));
 
             BatchRequest batch = directoryClient.batch();
             try {
-                for (Member member : sublist) {
+                for (final Member member : sublist) {
                     LOG.debug("removeGroupMembersBulk() - queuing member delete: {}", member);
-                    directoryClient.members().delete(groupKey, member.getEmail()).queue(batch, callbackMember);
+                    directoryClient.members().delete(groupKey, member.getEmail()).queue(batch, new JsonBatchCallback<Void>() {
+
+                        String key = member.getEmail();
+
+                        public void onSuccess(Void email, HttpHeaders responseHeaders) {
+                            LOG.debug("removeGroupMembersBulk() - successfully removed member: {}", this.key);
+                            updatedMembers.add(email);
+                        }
+
+                        public void onFailure(GoogleJsonError e, HttpHeaders responseHeaders) {
+                            for (GoogleJsonError.ErrorInfo error : e.getErrors()) {
+                                LOG.debug("{}: {}", this.key, error.getReason());
+                            }
+                        }
+                    });
                 }
 
                 execute(batch);
