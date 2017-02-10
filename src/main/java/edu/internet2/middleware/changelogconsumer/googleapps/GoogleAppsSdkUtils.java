@@ -471,7 +471,7 @@ public class GoogleAppsSdkUtils {
      * @return the new Group object created/returned by Google
      * @throws IOException
      */
-    public static List<Member> addGroupMembersBulk(Directory directoryClient, String groupKey, List<Member> members) throws IOException {
+    public static List<Member> addGroupMembersBulk(final Directory directoryClient, final String groupKey, List<Member> members) throws IOException {
         LOG.debug("addGroupMembersBulk() - {}", groupKey);
 
         final List<Member> updatedMembers = new ArrayList<Member>();
@@ -486,7 +486,7 @@ public class GoogleAppsSdkUtils {
                     LOG.debug("addGroupMembersBulk() - queuing member add: {}", member);
                     directoryClient.members().insert(groupKey, member).queue(batch, new JsonBatchCallback<Member>() {
 
-                        String key = member.getEmail();
+                        Member localMember = member;
 
                         public void onSuccess(Member member, HttpHeaders responseHeaders) {
                             LOG.debug("addGroupMembersBulk() - successfully added member: {}", member);
@@ -495,7 +495,12 @@ public class GoogleAppsSdkUtils {
 
                         public void onFailure(GoogleJsonError e, HttpHeaders responseHeaders) {
                             for (GoogleJsonError.ErrorInfo error : e.getErrors()) {
-                                LOG.debug("{}: {} ", key, error.getReason());
+                                LOG.warn("{}: {} - Reverting to individual transaction", this.localMember.getEmail(), error.getReason());
+                                try {
+                                    addGroupMember(directoryClient, groupKey, this.localMember);
+                                } catch(IOException ex) {
+                                    LOG.error("An unknown error occurred: " + e);
+                                }
                             }
                         }
                     });
@@ -540,7 +545,7 @@ public class GoogleAppsSdkUtils {
      * @return the new Group object created/returned by Google
      * @throws IOException
      */
-    public static List<Void> removeGroupMembersBulk(Directory directoryClient, String groupKey, List<Member> members) throws IOException {
+    public static List<Void> removeGroupMembersBulk(final Directory directoryClient, final String groupKey, List<Member> members) throws IOException {
         LOG.debug("removeGroupMembersBulk() - {}", groupKey);
 
         final List<Void> updatedMembers = new ArrayList<Void>();
@@ -554,16 +559,22 @@ public class GoogleAppsSdkUtils {
                     LOG.debug("removeGroupMembersBulk() - queuing member delete: {}", member);
                     directoryClient.members().delete(groupKey, member.getEmail()).queue(batch, new JsonBatchCallback<Void>() {
 
-                        String key = member.getEmail();
+                        Member localMember = member;
 
                         public void onSuccess(Void email, HttpHeaders responseHeaders) {
-                            LOG.debug("removeGroupMembersBulk() - successfully removed member: {}", this.key);
+                            LOG.debug("removeGroupMembersBulk() - successfully removed member: {}", this.localMember.getEmail());
                             updatedMembers.add(email);
                         }
 
                         public void onFailure(GoogleJsonError e, HttpHeaders responseHeaders) {
                             for (GoogleJsonError.ErrorInfo error : e.getErrors()) {
-                                LOG.debug("{}: {}", this.key, error.getReason());
+                                LOG.warn("{}: {} - Reverting to individual transaction", this.localMember.getEmail(), error.getReason());
+
+                                try {
+                                    removeGroupMember(directoryClient, groupKey, localMember.getEmail());
+                                } catch (IOException ex) {
+                                    LOG.error("An unknown error occurred: " + e);
+                                }
                             }
                         }
                     });
