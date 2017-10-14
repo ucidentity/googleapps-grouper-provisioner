@@ -290,14 +290,14 @@ public class GoogleAppsSdkUtils {
      * @return a list of all the groups in the directory
      * @throws IOException
      */
-    public static List<Group> retrieveAllGroups(Directory directoryClient) throws IOException {
+    public static List<Group> retrieveAllGroups(Directory directoryClient, String domain) throws IOException {
         LOG.debug("retrieveAllGroups()");
 
         final List<Group> allGroups = new ArrayList<Group>();
 
         Directory.Groups.List request = null;
         try {
-            request = directoryClient.groups().list().setCustomer("my_customer").setMaxResults(1000000);
+            request = directoryClient.groups().list().setCustomer("my_customer").setDomain(domain).setMaxResults(1000000);
         } catch (IOException e) {
             LOG.error("An unknown error occurred: " + e);
         }

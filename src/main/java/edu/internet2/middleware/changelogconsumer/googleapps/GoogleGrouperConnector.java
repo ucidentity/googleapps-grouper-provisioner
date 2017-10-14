@@ -151,7 +151,7 @@ public class GoogleGrouperConnector {
      */
     public void populateGoogleCache() {
         populateGooUsersCache(directoryClient);
-        populateGooGroupsCache(directoryClient);
+        populateGooGroupsCache(directoryClient, domain);
     }
 
     public void populateGooUsersCache(Directory directory) {
@@ -170,12 +170,12 @@ public class GoogleGrouperConnector {
         }
     }
 
-    public void populateGooGroupsCache(Directory directory) {
+    public void populateGooGroupsCache(Directory directory, String domain) {
         LOG.debug("Google Apps Consumer '{}' - Populating the groupCache.", consumerName);
 
         if (GoogleCacheManager.googleGroups().isExpired()) {
             try {
-                final List<Group> list = GoogleAppsSdkUtils.retrieveAllGroups(directoryClient);
+                final List<Group> list = GoogleAppsSdkUtils.retrieveAllGroups(directoryClient, domain);
                 GoogleCacheManager.googleGroups().seed(list);
 
             } catch (GoogleJsonResponseException e) {

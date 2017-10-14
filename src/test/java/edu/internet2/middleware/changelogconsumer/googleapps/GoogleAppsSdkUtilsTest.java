@@ -49,6 +49,8 @@ public class GoogleAppsSdkUtilsTest {
     private static String SERVICE_ACCOUNT_PKCS_12_FILE_PATH;
     private static String SERVICE_IMPERSONATION_USER;
 
+    private static String DOMAIN;
+
     /** Global instance of the HTTP transport & JSON Factory. */
     private static HttpTransport httpTransport;
     private static final JsonFactory JSON_FACTORY = JacksonFactory.getDefaultInstance();
@@ -71,6 +73,8 @@ public class GoogleAppsSdkUtilsTest {
             SERVICE_ACCOUNT_EMAIL = props.getProperty("SERVICE_ACCOUNT_EMAIL");
             SERVICE_ACCOUNT_PKCS_12_FILE_PATH = props.getProperty("SERVICE_ACCOUNT_PKCS_12_FILE_PATH");
             SERVICE_IMPERSONATION_USER = props.getProperty("SERVICE_IMPERSONATION_USER");
+            DOMAIN = props.getProperty("DOMAIN");
+
         }
         catch (IOException e) {
             System.out.println("unit-test.properties configuration not found. Try again! Love, Grumpy Cat");
@@ -178,7 +182,7 @@ public class GoogleAppsSdkUtilsTest {
 
     @Test
     public void testRetrieveAllGroups() throws GeneralSecurityException, IOException {
-        List<Group> allGroups = GoogleAppsSdkUtils.retrieveAllGroups(directoryClient);
+        List<Group> allGroups = GoogleAppsSdkUtils.retrieveAllGroups(directoryClient, DOMAIN);
         assertTrue(allGroups.size() > 0);
     }
 
