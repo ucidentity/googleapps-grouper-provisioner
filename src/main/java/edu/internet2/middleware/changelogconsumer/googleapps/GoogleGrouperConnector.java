@@ -248,6 +248,11 @@ public class GoogleGrouperConnector {
     }
 
     public User createGooUser(Subject subject) throws IOException {
+        if (subject == null) {
+            LOG.warn("subject is null");
+            return null;
+        }
+
         final String email = subject.getAttributeValue("email");
         final String subjectName = subject.getName();
 
@@ -670,6 +675,9 @@ public class GoogleGrouperConnector {
 	 */
 	public String fetchGooUserIdentifier (Subject subject) {
 		LOG.debug("In fetchGooUserIdentifier with a subject: " + subject);
+
+		/** If the subject is null, just return **/
+		if (subject == null) return null;
 				
 		if (attributeForGooUserLookup != null) {
 			String gooSubjectIdentifier = subject.getAttributeValue( attributeForGooUserLookup );
