@@ -25,6 +25,7 @@ import edu.internet2.middleware.changelogconsumer.googleapps.utils.ComparableMem
 import edu.internet2.middleware.changelogconsumer.googleapps.utils.GoogleAppsSyncProperties;
 import edu.internet2.middleware.grouper.GrouperSession;
 import edu.internet2.middleware.grouper.MemberFinder;
+import edu.internet2.middleware.grouper.SubjectFinder;
 import edu.internet2.middleware.subject.Subject;
 import edu.internet2.middleware.subject.provider.SubjectTypeEnum;
 import org.apache.commons.collections.CollectionUtils;
@@ -230,7 +231,13 @@ public class GoogleAppsFullSync {
                 //Retrieve Membership
                 ArrayList<ComparableMemberItem> grouperMembers = new ArrayList<ComparableMemberItem>();
                 Set<edu.internet2.middleware.grouper.Member> members = new LinkedHashSet<edu.internet2.middleware.grouper.Member>();
-                members.addAll(item.getGrouperGroup().getMembers());
+                for (edu.internet2.middleware.grouper.Member member : item.getGrouperGroup().getMembers()) {
+                    if (SubjectFinder.findByIdOrIdentifier(member.getName(), false) != null) {
+                        members.add(member);
+                    } else {
+                        LOG.warn("Subject info for Member {} not found within group {}", member.getName(), item.getGrouperGroup().getName());
+                    }
+                }
                 for (Subject subj : item.getGrouperGroup().getUpdaters()) {
                   members.add(MemberFinder.findBySubject(GrouperSession.staticGrouperSession(), subj, false));
                 }
@@ -241,7 +248,12 @@ public class GoogleAppsFullSync {
                     if (member.getSubjectType() == SubjectTypeEnum.PERSON) {
                       String role = connector.determineRole(member, item.getGrouperGroup());
                       if (role != null) {
-                        grouperMembers.add(new ComparableMemberItem(connector.fetchGooUserIdentifier(member.getSubject()), member));
+                          String gooIdentifier = connector.fetchGooUserIdentifier(member.getSubject());
+                          if ( gooIdentifier != null) {
+                              grouperMembers.add(new ComparableMemberItem(gooIdentifier, member));
+                          } else {
+                              LOG.warn("No goo identifier for member {} of group {}", member.getName(), item.getGrouperGroup().getName());
+                          }
                       }
                     }
                 }

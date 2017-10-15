@@ -33,6 +33,7 @@ import com.google.api.services.admin.directory.model.User;
 import com.google.api.services.admin.directory.model.UserName;
 import edu.internet2.middleware.changelogconsumer.googleapps.cache.GoogleCacheManager;
 import edu.internet2.middleware.changelogconsumer.googleapps.utils.AddressFormatter;
+import edu.internet2.middleware.changelogconsumer.googleapps.GoogleAppsChangeLogConsumer;
 import edu.internet2.middleware.grouper.changeLog.*;
 import edu.internet2.middleware.subject.Subject;
 import java.io.IOException;
