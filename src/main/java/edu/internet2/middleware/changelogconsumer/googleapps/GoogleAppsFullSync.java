@@ -238,10 +238,12 @@ public class GoogleAppsFullSync {
                         LOG.warn("Subject info for Member {} not found within group {}", member.getName(), item.getGrouperGroup().getName());
                     }
                 }
-                for (Subject subj : item.getGrouperGroup().getUpdaters()) {
+                Collection<edu.internet2.middleware.subject.Subject> updatersToUse = CollectionUtils.subtract(item.getGrouperGroup().getUpdaters(), item.getGrouperGroup().getOptouts());
+                for (Subject subj : updatersToUse) {
                   members.add(MemberFinder.findBySubject(GrouperSession.staticGrouperSession(), subj, false));
                 }
-                for (Subject subj : item.getGrouperGroup().getAdmins()) {
+                Collection<edu.internet2.middleware.subject.Subject> adminsToUse = CollectionUtils.subtract(item.getGrouperGroup().getAdmins(), item.getGrouperGroup().getOptouts());
+                for (Subject subj : adminsToUse) {
                   members.add(MemberFinder.findBySubject(GrouperSession.staticGrouperSession(), subj, false));
                 }
                 for (edu.internet2.middleware.grouper.Member member : members) {

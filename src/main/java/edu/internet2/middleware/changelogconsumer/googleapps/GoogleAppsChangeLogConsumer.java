@@ -618,6 +618,12 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
         final String memberId = changeLogEntry.retrieveValueForLabel(ChangeLogLabels.MEMBERSHIP_ADD.memberId);
         final edu.internet2.middleware.grouper.Group grouperGroup = connector.fetchGrouperGroup(groupName);
         final Member member = MemberFinder.findByUuid(GrouperSession.staticGrouperSession(), memberId, false);
+        // Check for hasAdmin, hasUpdate, hasOptout
+        if (member.hasOptout(grouperGroup) && (member.hasAdmin(grouperGroup) || member.hasUpdate(grouperGroup))) {
+            LOG.debug("Google Apps Consumer '{}' - Change log entry '{}' Skipping membership add, nothing to do because the updater/admin has optout.", consumerName,
+                    toString(changeLogEntry));
+            return;
+        }
 
         if (!connector.shouldSyncGroup(grouperGroup)) {
             LOG.debug("Google Apps Consumer '{}' - Change log entry '{}' Skipping membership add, nothing to do cause the group is not flagged or is gone.", consumerName,
@@ -728,11 +734,19 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
         }
 
         if (member.getSubjectType() == SubjectTypeEnum.PERSON) {
-            try {
-                String role = connector.determineRole(member, grouperGroup);
-                if (role != null) {
-                  connector.updateGooMember(grouperGroup, member.getSubject(), role);
-                }
+             try {
+                 // Check for hasAdmin, hasUpdate, hasOptout
+                 if (member.hasOptout(grouperGroup) && (member.hasAdmin(grouperGroup) || member.hasUpdate(grouperGroup))) {
+                     LOG.debug("Google Apps Consumer '{}' - Change log entry '{}' Removing the updater/admin because it has optout.", consumerName,
+                             toString(changeLogEntry));
+                     connector.removeGooMembership(groupName, member.getSubject());
+                 } else {
+
+                     String role = connector.determineRole(member, grouperGroup);
+                     if (role != null) {
+                         connector.updateGooMember(grouperGroup, member.getSubject(), role);
+                     }
+                 }
             } catch (IOException e) {
                 LOG.debug("Google Apps Consumer '{}' - Change log entry '{}' Error processing privilege add: {}", new Object[]{consumerName,
                         toString(changeLogEntry), e});
@@ -758,6 +772,13 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
 
         final edu.internet2.middleware.grouper.Group grouperGroup = connector.fetchGrouperGroup(groupName);
         final Member member = MemberFinder.findByUuid(GrouperSession.staticGrouperSession(), memberId, false);
+        // Check for hasAdmin, hasUpdate, hasOptout
+        if (member.hasOptout(grouperGroup) && (member.hasAdmin(grouperGroup) || member.hasUpdate(grouperGroup))) {
+            LOG.debug("Google Apps Consumer '{}' - Change log entry '{}' Skipping priv update, nothing to do because the updater/admin has optout.", consumerName,
+                    toString(changeLogEntry));
+            return;
+        }
+
 
         if (!connector.shouldSyncGroup(grouperGroup)) {
             LOG.debug("Google Apps Consumer '{}' - Change log entry '{}' Skipping privilege update, nothing to do cause the group is not flagged or is gone.", consumerName,

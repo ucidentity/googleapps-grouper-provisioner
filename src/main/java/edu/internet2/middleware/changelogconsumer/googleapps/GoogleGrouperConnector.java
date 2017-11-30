@@ -48,6 +48,8 @@ import edu.internet2.middleware.subject.Subject;
 import edu.internet2.middleware.subject.provider.SubjectTypeEnum;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import com.google.common.collect.Sets;
+import org.apache.commons.collections.CollectionUtils;
 
 import java.io.IOException;
 import java.math.BigInteger;
@@ -57,6 +59,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Set;
+import java.util.Collection;
 
 /**
  * Contains methods used by both the ChangeLogConsumer and the FullSync classes.
@@ -349,10 +352,17 @@ public class GoogleGrouperConnector {
     private List<Member> CollectMembers(edu.internet2.middleware.grouper.Group grouperGroup, Group googleGroup) throws IOException {
         List<Member> gooMembers = new ArrayList<Member>();
 
-        //Get Member, admins, updaters Subjects
+        //Get Member, admins, updaters Subjects; remove admins/updaters with optout privs
         Set<edu.internet2.middleware.grouper.Member> members = grouperGroup.getMembers();
-        members.addAll(grouperGroup.getMembers(FieldFinder.find("admins", false)));
-        members.addAll(grouperGroup.getMembers(FieldFinder.find("updaters", false)));
+
+        Collection<edu.internet2.middleware.subject.Subject> adminsToUse = CollectionUtils.subtract(grouperGroup.getAdmins(), grouperGroup.getOptouts());
+        for (Subject subj : adminsToUse) {
+            members.add(MemberFinder.findBySubject(GrouperSession.staticGrouperSession(), subj, false));
+        }
+        Collection<edu.internet2.middleware.subject.Subject> updatersToUse = CollectionUtils.subtract(grouperGroup.getUpdaters(), grouperGroup.getOptouts());
+        for (Subject subj : updatersToUse) {
+            members.add(MemberFinder.findBySubject(GrouperSession.staticGrouperSession(), subj, false));
+        }
 
         for (edu.internet2.middleware.grouper.Member member : members) {
             if (member.getSubjectType() == SubjectTypeEnum.PERSON) {
@@ -369,7 +379,7 @@ public class GoogleGrouperConnector {
                     gooMember.setEmail(user.getPrimaryEmail());
                     gooMember.setRole(determineRole(member, grouperGroup));
                     gooMembers.add(gooMember)
-;                }
+;               }
             }
         }
 
