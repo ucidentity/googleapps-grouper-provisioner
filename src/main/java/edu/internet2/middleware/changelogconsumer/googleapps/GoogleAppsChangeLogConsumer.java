@@ -693,23 +693,29 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
         final String subjectId = changeLogEntry.retrieveValueForLabel(ChangeLogLabels.MEMBERSHIP_DELETE.subjectId);
         final String sourceId = changeLogEntry.retrieveValueForLabel(ChangeLogLabels.MEMBERSHIP_DELETE.sourceId);
         final Subject lookupSubject = connector.fetchGrouperSubject(sourceId, subjectId);
-        final SubjectType subjectType = lookupSubject.getType();
-        final Member member = MemberFinder.findByUuid(GrouperSession.staticGrouperSession(), memberId, false);
+        if (lookupSubject != null) {
+            final SubjectType subjectType = lookupSubject.getType();
+            final Member member = MemberFinder.findByUuid(GrouperSession.staticGrouperSession(), memberId, false);
 
-        //For nested groups, ChangeLogEvents fire when the group is removed, and also for each indirect user added,
-        //so we only need to handle PERSON events.
-        if (subjectType == SubjectTypeEnum.PERSON) {
-            try {                
-                String role = connector.determineRole(member, grouperGroup);
-                if (role != null) {
-                    connector.updateGooMember(grouperGroup, lookupSubject, role);
-                } else {
-                    connector.removeGooMembership(grouperGroup.getName(), lookupSubject);
+            //For nested groups, ChangeLogEvents fire when the group is removed, and also for each indirect user added,
+            //so we only need to handle PERSON events.
+            if (subjectType == SubjectTypeEnum.PERSON) {
+                try {
+                    String role = connector.determineRole(member, grouperGroup);
+                    if (role != null) {
+                        connector.updateGooMember(grouperGroup, lookupSubject, role);
+                    } else {
+                        connector.removeGooMembership(grouperGroup.getName(), lookupSubject);
+                    }
+                } catch (IOException e) {
+                    LOG.debug("Google Apps Consumer '{}' - Change log entry '{}' Error processing membership delete: {}", new Object[]{consumerName,
+                            toString(changeLogEntry), e});
                 }
-            } catch (IOException e) {
-                LOG.debug("Google Apps Consumer '{}' - Change log entry '{}' Error processing membership delete: {}", new Object[]{consumerName,
-                        toString(changeLogEntry), e});
             }
+        } else {
+            LOG.warn("Google Apps Consumer '{}' - Change log entry '{}' Skipping membership delete, because no subject found.", consumerName,
+                    toString(changeLogEntry));
+
         }
     }
 
