@@ -638,34 +638,40 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
         final String subjectId = changeLogEntry.retrieveValueForLabel(ChangeLogLabels.MEMBERSHIP_ADD.subjectId);
         final String sourceId = changeLogEntry.retrieveValueForLabel(ChangeLogLabels.MEMBERSHIP_ADD.sourceId);
         final Subject lookupSubject = connector.fetchGrouperSubject(sourceId, subjectId);
-        final SubjectType subjectType = lookupSubject.getType();
+        if (lookupSubject != null) {
+            final SubjectType subjectType = lookupSubject.getType();
 
-        try {
-            Group group = connector.fetchGooGroup(connector.getAddressFormatter().qualifyGroupAddress(groupName));
-            if (group == null) {
-                connector.createGooGroupIfNecessary(grouperGroup);
-                group = connector.fetchGooGroup(connector.getAddressFormatter().qualifyGroupAddress(groupName));
-            }
-
-            //For nested groups, ChangeLogEvents fire when the group is added, and also for each indirect user added,
-            //so we only need to handle PERSON events.
-            if (subjectType == SubjectTypeEnum.PERSON) {
-                User user = connector.fetchGooUser(connector.fetchGooUserIdentifier(lookupSubject));
-                if (user == null) {
-                    user = connector.createGooUser(lookupSubject);
+            try {
+                Group group = connector.fetchGooGroup(connector.getAddressFormatter().qualifyGroupAddress(groupName));
+                if (group == null) {
+                    connector.createGooGroupIfNecessary(grouperGroup);
+                    group = connector.fetchGooGroup(connector.getAddressFormatter().qualifyGroupAddress(groupName));
                 }
 
-                if (user != null) {
-                    String role = connector.determineRole(member, grouperGroup);
-                    if (role != null) {
-                      connector.createGooMember(group, user, role);
+                //For nested groups, ChangeLogEvents fire when the group is added, and also for each indirect user added,
+                //so we only need to handle PERSON events.
+                if (subjectType == SubjectTypeEnum.PERSON) {
+                    User user = connector.fetchGooUser(connector.fetchGooUserIdentifier(lookupSubject));
+                    if (user == null) {
+                        user = connector.createGooUser(lookupSubject);
+                    }
+
+                    if (user != null) {
+                        String role = connector.determineRole(member, grouperGroup);
+                        if (role != null) {
+                          connector.createGooMember(group, user, role);
+                        }
                     }
                 }
-            }
 
-        } catch (IOException e) {
-            LOG.debug("Google Apps Consumer '{}' - Change log entry '{}' Error processing membership add failed: {}", new Object[] {consumerName,
-                    toString(changeLogEntry), e});
+            } catch (IOException e) {
+                LOG.debug("Google Apps Consumer '{}' - Change log entry '{}' Error processing membership add failed: {}", new Object[] {consumerName,
+                        toString(changeLogEntry), e});
+            }
+        } else {
+            LOG.warn("Google Apps Consumer '{}' - Change log entry '{}' Skipping membership add, because no subject found.", consumerName,
+                    toString(changeLogEntry));
+
         }
     }
 
