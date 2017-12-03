@@ -137,6 +137,7 @@ public class GoogleAppsFullSync {
             final StopWatch stopWatch = new StopWatch();
             stopWatch.start();
 
+
             //Populate a normalized list (google naming) of Grouper groups
             ArrayList<ComparableGroupItem> grouperGroups = new ArrayList<ComparableGroupItem>();
             for (String groupKey : connector.getSyncedGroupsAndStems().keySet()) {
@@ -373,24 +374,36 @@ public class GoogleAppsFullSync {
     }
 
     private void processExtraGroups(boolean dryRun, Collection<ComparableGroupItem> extraGroups) {
-        for (ComparableGroupItem item : extraGroups) {
-          if (!properties.shouldIgnoreExtraGoogleGroups()) {
-            LOG.info("Google Apps Consumer '{}' Full Sync - removing or emptying extra Google group: {}", consumerName, item);
 
-            if (!dryRun) {
-                try {
-                    if (item.getGrouperGroup().getAttributeValueDelegate().retrieveValueString(connector.getSyncAttributeDefName()).equalsIgnoreCase("no")) {
-                        connector.emptyGooGroup(item.getGrouperGroup());
-                    } else {
-                        connector.deleteGooGroupByEmail(item.getName());
+        if (!properties.shouldIgnoreExtraGoogleGroups()) {
+            LOG.info("Google Apps Consumer '{}' Full Sync - removing or emptying extra Google groups.", consumerName);
+
+            for (ComparableGroupItem item : extraGroups) {
+                LOG.info("Google Apps Consumer '{}' Full Sync - removing or emptying extra Google group: {}", consumerName, item);
+
+                if (!dryRun) {
+                    try {
+                        edu.internet2.middleware.grouper.Group group =
+                                connector.fetchGrouperGroupApproximate(item.getName().replace("@" + properties.getGoogleDomain(), ""));
+                        if (group != null) {
+                            if (group.getAttributeValueDelegate().retrieveValueString(connector.getSyncAttributeDefName()).equalsIgnoreCase("no")) {
+                                LOG.debug("We are emptying the google group: {}", item.getName());
+                                connector.emptyGooGroup(group);
+                            } else {
+                                LOG.debug("We are removing the google group: {}", item.getName());
+                                connector.deleteGooGroupByEmail(item.getName());
+                            }
+                        } else {
+                            LOG.debug("We couldn't find the group, so we are removing the google group: {}", item.getName());
+                            connector.deleteGooGroupByEmail(item.getName());
+                        }
+                    } catch (IOException e) {
+                        LOG.error("Google Apps Consume '{}' Full Sync - Error removing extra group ({}): {}", new Object[]{consumerName, item.getName(), e.getMessage()});
                     }
-                } catch (IOException e) {
-                    LOG.error("Google Apps Consume '{}' Full Sync - Error removing extra group ({}): {}", new Object[]{consumerName, item.getName(), e.getMessage()});
+                } else {
+                    LOG.info("Google Apps Consumer '{}' Full Sync - ignoring extra Google group: {}", consumerName, item);
                 }
             }
-          } else {
-            LOG.info("Google Apps Consumer '{}' Full Sync - ignoring extra Google group: {}", consumerName, item);
-          }
         }
     }
 

@@ -41,6 +41,7 @@ import edu.internet2.middleware.grouper.attr.AttributeDefValueType;
 import edu.internet2.middleware.grouper.attr.assign.AttributeAssign;
 import edu.internet2.middleware.grouper.attr.finder.AttributeDefFinder;
 import edu.internet2.middleware.grouper.attr.finder.AttributeDefNameFinder;
+import edu.internet2.middleware.grouper.filter.*;
 import edu.internet2.middleware.grouper.internal.dao.QueryOptions;
 import edu.internet2.middleware.grouper.misc.GrouperDAOFactory;
 import edu.internet2.middleware.grouper.util.GrouperUtil;
@@ -225,6 +226,7 @@ public class GoogleGrouperConnector {
     }
 
     public edu.internet2.middleware.grouper.Group fetchGrouperGroup(String groupName) {
+        LOG.debug("Google Apps Consumer '{}' - fetchGrouperGroup(), groupName is: {}", consumerName, groupName);
         edu.internet2.middleware.grouper.Group group = grouperGroups.get(groupName);
         if (group == null) {
             group = GroupFinder.findByName(GrouperSession.staticGrouperSession(false), groupName, false);
@@ -233,9 +235,35 @@ public class GoogleGrouperConnector {
                 grouperGroups.put(group);
             }
         }
-
         return group;
     }
+
+    public edu.internet2.middleware.grouper.Group fetchGrouperGroupApproximate(String groupName) {
+        LOG.debug("Google Apps Consumer '{}' - fetchGrouperGroupApproximate(), groupName is: {}", consumerName, groupName);
+        // Find the root stem
+        Stem stem = StemFinder.findRootStem(GrouperSession.staticGrouperSession(false));
+        // Make the query. Checks current group name, display name, extension, display extension only
+        Set<edu.internet2.middleware.grouper.Group> groups =
+                GrouperQuery.createQuery(GrouperSession.staticGrouperSession(false), new GroupCurrentNameFilter(groupName, stem)).getGroups();
+        // Confirm there was only one group returned. If not create an error report
+        if (groups != null) {
+            if (groups.size() == 1) {
+                return (edu.internet2.middleware.grouper.Group) groups.toArray()[0];
+            } else if (groups.size() >= 1) {
+                // Since a substring search is used, there may be matches to similar names.
+                LOG.warn("More than one group was found {}. Checking further.", groups);
+                for (edu.internet2.middleware.grouper.Group group : groups) {
+                    if (group.getName().endsWith(":" + groupName)) {
+                        LOG.info ("Choosing this group: {}", group.getName());
+                        return group;
+                    }
+                }
+            }
+        }
+        LOG.error("No groups found");
+        return null;
+    }
+
 
     public Subject fetchGrouperSubject(String sourceId, String subjectId) {
         Subject subject = grouperSubjects.get(sourceId + "__" + subjectId);
@@ -428,6 +456,7 @@ public class GoogleGrouperConnector {
     }
 
     public void emptyGooGroup(edu.internet2.middleware.grouper.Group group) throws IOException {
+        LOG.debug("emptyGooGroup() - {}", group.getName());
         final String groupKey = addressFormatter.qualifyGroupAddress(group.getName());
 
         List<Member> members = getGooMembership(groupKey);
@@ -672,10 +701,13 @@ public class GoogleGrouperConnector {
             return;
         }
 
-        if (member.getRole() != role) {
+
+        if (!member.getRole().equals(role)) {
             member.setRole(role);
             GoogleAppsSdkUtils.updateGroupMember(directoryClient, gooGroup.getEmail(), user.getPrimaryEmail(), member);
             recentlyManipulatedObjectsList.add(user.getPrimaryEmail());
+        } else {
+            LOG.debug("This member {} needs no update.", member.getEmail());
         }
     }
 
